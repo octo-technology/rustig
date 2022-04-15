@@ -1,3 +1,6 @@
+mod cli;
+mod data;
+
 fn main() {
-    println!("Hello, world!");
+    cli::parse().expect("Unable to execute the command")
 }

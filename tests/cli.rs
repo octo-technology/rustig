@@ -9,7 +9,7 @@ fn init_subcommand_exist() -> Result<(), Box<dyn std::error::Error>> {
     cmd.arg("init");
     cmd.assert()
         .success()
-        .stdout(predicate::str::contains("Init!"));
+        .stdout(predicate::str::contains("Initialized"));
 
     Ok(())
 }

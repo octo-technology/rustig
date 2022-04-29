@@ -1,5 +1,5 @@
 use clap::{Command};
-use std::fs;
+use std::{env, fs};
 
 const RUSTIG_DIR: &str = ".rustig";
 
@@ -23,7 +23,9 @@ fn cli() -> Command<'static> {
 }
 
 fn init_cmd() -> std::io::Result<()> {
-    fs::create_dir(RUSTIG_DIR)?;
+    let _result = fs::create_dir(RUSTIG_DIR);
+    let current_dir = env::current_dir()?;
+    println!("Initialized empty rustig repository in {}/{}", current_dir.display(), RUSTIG_DIR);
     Ok(())
 }
 

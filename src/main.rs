@@ -1,23 +1,26 @@
 mod data;
 
-use clap::Parser;
-use std::io;
+use clap::{Parser, Subcommand};
+use data::init;
 
-// Implem
-#[derive(Parser, Debug)]
+#[derive(Parser)]
+#[clap(author, version, about, long_about = None)]
 struct Cli {
-    command: String,
+    #[clap(subcommand)]
+    command: Commands,
 }
 
-fn default(wrong_command: String) -> io::Result<()> {
-    println!("No command called : '{}'", wrong_command);
-    Ok(())
+#[derive(Subcommand)]
+enum Commands {
+    Init,
 }
 
 fn main() {
-    let args = Cli::parse();
-    match args.command.as_str() {
-        "init" => data::init(),
-        _ => default(args.command),
-    };
+    let cli = Cli::parse();
+
+    match &cli.command {
+        Commands::Init => {
+            init();
+        }
+    }
 }

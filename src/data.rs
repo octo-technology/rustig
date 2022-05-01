@@ -6,8 +6,8 @@ pub const GIT_DIR: &str = ".rustig";
 
 pub fn init() -> io::Result<()> {
     fs::create_dir(GIT_DIR)?;
-    let obj_path = path::PathBuf::from(format!("{GIT_DIR}/objects"));
-    fs::create_dir(obj_path)?;
+    let object_path = path::PathBuf::from(format!("{GIT_DIR}/objects"));
+    fs::create_dir(object_path)?;
     Ok(())
 }
 
@@ -21,4 +21,10 @@ pub fn hash_object(path: path::PathBuf) -> io::Result<String> {
     fs::write(output_path, content).expect("Unable to write file");
 
     Ok(oid)
+}
+
+pub fn get_object(object: String) -> io::Result<String> {
+    let object_path = path::PathBuf::from(format!("{GIT_DIR}/objects/{object}"));
+    let content = fs::read_to_string(object_path).expect("Unable to read file");
+    Ok(content)
 }

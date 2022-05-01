@@ -15,10 +15,19 @@ struct Cli {
 enum Commands {
     /// Create an empty Git repository or reinitialize an existing one
     Init,
+
+    /// Hash a file
     #[clap(arg_required_else_help = true)]
     HashObject {
         #[clap(required = true, parse(from_os_str))]
         path: PathBuf,
+    },
+
+    /// Print hashed objects
+    #[clap(arg_required_else_help = true)]
+    CatFile {
+        #[clap(required = true)]
+        object: String,
     },
 }
 
@@ -28,6 +37,7 @@ pub fn parse() {
     match args.command {
         Commands::Init {} => init().expect("Unable to init .rustig repository"),
         Commands::HashObject { path } => hash_object(path).expect("Unable to hash file"),
+        Commands::CatFile { object } => cat_file(object).expect("Unable to open file"),
     }
 }
 
@@ -44,6 +54,12 @@ fn init() -> io::Result<()> {
 
 fn hash_object(path: PathBuf) -> io::Result<()> {
     let hash = data::hash_object(path)?;
-    println!("generated hash: {}", hash);
+    println!("{}", hash);
+    Ok(())
+}
+
+fn cat_file(object: String) -> io::Result<()> {
+    let object_content = data::get_object(object)?;
+    println!("{}", object_content);
     Ok(())
 }

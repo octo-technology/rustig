@@ -2,13 +2,13 @@ use clap::{Parser, Subcommand};
 use lazy_static::lazy_static;
 use sha1_smol::Digest;
 use std::fs::File;
-use std::io::{prelude::*, BufReader, BufWriter};
+use std::io::{self, prelude::*, BufReader, BufWriter, Write};
 use std::path::PathBuf;
 use std::{env, fs};
 
 lazy_static! {
-    static ref GIT_DIR: PathBuf = env::current_dir().unwrap().join(".rustig");
-    static ref GIT_OBJECTS_DIR: PathBuf = GIT_DIR.join("objects");
+    pub static ref GIT_DIR: PathBuf = env::current_dir().unwrap().join(".rustig");
+    pub static ref GIT_OBJECTS_DIR: PathBuf = GIT_DIR.join("objects");
 }
 
 #[derive(Parser, Debug)]
@@ -41,6 +41,14 @@ enum Commands {
     },
 }
 
+fn write_to_stdout(bytes: &[u8]) -> Result<(), Box<(dyn std::error::Error + 'static)>> {
+    let stdout = io::stdout();
+    let mut handle = stdout.lock();
+    handle.flush()?;
+    handle.write_all(&bytes)?;
+    Ok(())
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Cli::parse();
 
@@ -60,8 +68,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let opath: PathBuf = GIT_OBJECTS_DIR.join(oid.to_string());
 
             let object = File::create(opath)?;
+
             let mut object = BufWriter::new(object);
-            object.write_all(&contents.as_bytes())?;
+            object.write_all(contents.as_bytes())?;
+
+            write_to_stdout(&oid.to_string().as_bytes())?;
         }
 
         Commands::CatFile { object } => {
@@ -70,9 +81,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut contents = String::new();
             buf_reader.read_to_string(&mut contents)?;
 
-            for line in contents.lines() {
-                println!("{}", line);
-            }
+            write_to_stdout(contents.as_bytes())?;
         }
     }
 

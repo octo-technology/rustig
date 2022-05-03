@@ -66,7 +66,8 @@ fn cat_file_subcommand() -> Result<(), Box<dyn std::error::Error>> {
     temp_file.write_str("Bacon ipsum dolor amet doner pork chop filet mignon beef ribs.\n")?;
 
     // when
-    cmd.arg("cat-file").arg(temp_file.path());
+    cmd.arg("cat-file")
+        .arg("cc67029eb5860e56e3ccefaf6036e80380fe8372");
 
     // then
     cmd.assert().success().stdout(predicate::str::contains(

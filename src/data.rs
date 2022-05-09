@@ -13,7 +13,7 @@ lazy_static! {
 }
 
 pub fn init() -> io::Result<String> {
-    fs::create_dir_all(&*GIT_OBJECTS_DIR)?;
+    fs::create_dir_all(GIT_OBJECTS_DIR.as_path())?;
     Ok(GIT_DIR.display().to_string())
 }
 

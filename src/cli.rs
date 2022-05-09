@@ -33,13 +33,13 @@ enum Commands {
     },
 }
 
-pub fn parse() -> Result<(), Box<dyn std::error::Error>> {
+pub fn parse() -> io::Result<()> {
     let args = Cli::parse();
 
     return match args.command {
-        Commands::Init {} => Ok(init()?),
-        Commands::HashObject { path } => Ok(hash_object(path)?),
-        Commands::CatFile { object } => Ok(cat_file(object)?),
+        Commands::Init {} => init(),
+        Commands::HashObject { path } => hash_object(path),
+        Commands::CatFile { object } => cat_file(object),
     };
 }
 

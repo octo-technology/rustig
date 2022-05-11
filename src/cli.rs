@@ -1,7 +1,6 @@
 use crate::data;
 use clap::{Parser, Subcommand};
-use std::io;
-use std::path::PathBuf;
+use std::{env, io, path::PathBuf};
 
 #[derive(Parser, Debug)]
 #[clap(about = "A git clone in Rust", long_about = None)]
@@ -35,28 +34,32 @@ enum Commands {
 
 pub fn parse() -> io::Result<()> {
     let args = Cli::parse();
+    let context = data::Context {
+        work_dir: env::current_dir()?, // TODO: supplyable via global flag `--work-tree`
+        repo_dir: env::current_dir()?.join(".rustig"), // TODO: supplyable via global flag `--git-dir`
+    };
 
     return match args.command {
-        Commands::Init {} => init(),
-        Commands::HashObject { path } => hash_object(path),
-        Commands::CatFile { object } => cat_file(object),
+        Commands::Init {} => init(&context),
+        Commands::HashObject { path } => hash_object(&context, path),
+        Commands::CatFile { object } => cat_file(&context, object),
     };
 }
 
-fn init() -> io::Result<()> {
-    let repo_dir = data::init()?;
+fn init(context: &data::Context) -> io::Result<()> {
+    let repo_dir = context.init()?;
     println!("Initialized empty Rustig repository in {}", repo_dir);
     Ok(())
 }
 
-fn hash_object(path: PathBuf) -> io::Result<()> {
-    let hash = data::hash_object(path)?;
+fn hash_object(context: &data::Context, path: PathBuf) -> io::Result<()> {
+    let hash = context.hash_object(path)?;
     println!("{}", hash);
     Ok(())
 }
 
-fn cat_file(object: String) -> io::Result<()> {
-    let content = data::cat_file(object)?;
+fn cat_file(context: &data::Context, object: String) -> io::Result<()> {
+    let content = context.cat_file(object)?;
     println!("{}", content);
     Ok(())
 }

@@ -1,5 +1,6 @@
 use crate::data;
 use clap::{Parser, Subcommand};
+use clap_verbosity_flag::Verbosity;
 use std::{env, io, path::PathBuf};
 
 #[derive(Parser, Debug)]
@@ -8,6 +9,9 @@ struct Cli {
     /// The command to run
     #[clap(subcommand)]
     command: Commands,
+
+    #[clap(flatten)]
+    verbose: Verbosity,
 }
 
 #[derive(Debug, Subcommand)]
@@ -34,6 +38,12 @@ enum Commands {
 
 pub fn parse() -> io::Result<()> {
     let args = Cli::parse();
+
+    env_logger::Builder::new()
+        .filter_level(args.verbose.log_level_filter())
+        .init();
+
+    log::trace!("Building execution context");
     let context = data::Context {
         work_dir: env::current_dir()?, // TODO: supplyable via global flag `--work-tree`
         repo_dir: env::current_dir()?.join(".rustig"), // TODO: supplyable via global flag `--git-dir`

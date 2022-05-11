@@ -1,44 +1,38 @@
 use lazy_static::lazy_static;
-use sha1_smol::Digest;
+use sha1::{Digest, Sha1};
 use std::{
     env,
-    fs::{self, File},
-    io::{self, BufReader, BufWriter, Read, Write},
+    fs::{self},
+    io::Result,
     path::PathBuf,
 };
 
 lazy_static! {
-    pub static ref GIT_DIR: PathBuf = env::current_dir().unwrap().join(".rustig");
-    pub static ref GIT_OBJECTS_DIR: PathBuf = GIT_DIR.join("objects");
+    pub static ref WORK_DIR: PathBuf = env::current_dir().unwrap(); // FIXME: set in main
+    pub static ref REPO_DIR: PathBuf = WORK_DIR.join(".rustig");
+    pub static ref OBJECTS_DIR: PathBuf = REPO_DIR.join("objects");
 }
 
-pub fn init() -> io::Result<String> {
-    fs::create_dir_all(GIT_OBJECTS_DIR.as_path())?;
-    Ok(GIT_DIR.display().to_string())
+pub fn init() -> Result<String> {
+    fs::create_dir_all(OBJECTS_DIR.as_path())?;
+    Ok(REPO_DIR.display().to_string())
 }
 
-pub fn hash_object(path: PathBuf) -> io::Result<String> {
-    let file = File::open(path)?;
-    let mut buf_reader = BufReader::new(file);
-    let mut contents = String::new();
-    buf_reader.read_to_string(&mut contents)?;
+pub fn hash_object(path: PathBuf) -> Result<String> {
+    let data = fs::read(path)?;
 
-    let oid: Digest = sha1_smol::Sha1::from(&contents).digest();
-    let opath: PathBuf = GIT_OBJECTS_DIR.join(oid.to_string());
+    let mut hasher = Sha1::new();
+    hasher.update(&data);
+    let hash = format!("{:x}", hasher.finalize());
 
-    let object = File::create(opath)?;
+    let path = OBJECTS_DIR.join(&hash);
+    fs::write(path, data)?;
 
-    let mut object = BufWriter::new(object);
-    object.write_all(contents.as_bytes())?;
-
-    Ok(oid.to_string())
+    Ok(hash)
 }
 
-pub fn cat_file(object: String) -> io::Result<String> {
-    let file = File::open(GIT_OBJECTS_DIR.join(object))?;
-    let mut buf_reader = BufReader::new(file);
-    let mut contents = String::new();
-    buf_reader.read_to_string(&mut contents)?;
-
-    Ok(contents)
+pub fn cat_file(object: String) -> Result<String> {
+    let path = OBJECTS_DIR.join(object);
+    let data = fs::read_to_string(path)?;
+    Ok(data)
 }

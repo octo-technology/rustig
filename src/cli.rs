@@ -4,7 +4,7 @@ use std::io;
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
-#[clap(about = "A git implementation in Rust", long_about = None)]
+#[clap(about = "A git clone in Rust", long_about = None)]
 struct Cli {
     /// The command to run
     #[clap(subcommand)]
@@ -44,8 +44,8 @@ pub fn parse() -> io::Result<()> {
 }
 
 fn init() -> io::Result<()> {
-    let git_dir = data::init()?;
-    println!("Initialized empty Rustig repository in {}", git_dir);
+    let repo_dir = data::init()?;
+    println!("Initialized empty Rustig repository in {}", repo_dir);
     Ok(())
 }
 

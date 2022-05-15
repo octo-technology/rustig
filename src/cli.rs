@@ -22,6 +22,7 @@ enum Commands {
         /// Object to hash
         #[clap(required = true, parse(from_os_str))]
         path: PathBuf,
+        type_: String
     },
 
     /// Provide content or type and size information for repository objects
@@ -30,33 +31,35 @@ enum Commands {
         /// The name of the object to show.
         #[clap(required = true)]
         object: String,
+        #[clap(default_value_t=String::from("blob"),short, long)]
+        expected: String,
     },
 }
 
 pub fn parse() -> io::Result<()> {
-    let args = Cli::parse();
+    let args: Cli = Cli::parse();
 
     return match args.command {
         Commands::Init {} => init(),
-        Commands::HashObject { path } => hash_object(path),
-        Commands::CatFile { object } => cat_file(object),
+        Commands::HashObject { path, type_ } => hash_object(path, type_),
+        Commands::CatFile { object, expected } => cat_file(object, expected),
     };
 }
 
 fn init() -> io::Result<()> {
-    let git_dir = data::init()?;
+    let git_dir:String = data::init()?;
     println!("Initialized empty Rustig repository in {}", git_dir);
     Ok(())
 }
 
-fn hash_object(path: PathBuf) -> io::Result<()> {
-    let hash = data::hash_object(path)?;
+fn hash_object(path: PathBuf, type_: String) -> io::Result<()> {
+    let hash:String = data::hash_object(path, type_)?;
     println!("{}", hash);
     Ok(())
 }
 
-fn cat_file(object: String) -> io::Result<()> {
-    let content = data::cat_file(object)?;
+fn cat_file(object: String, expected: String) -> io::Result<()> {
+    let content:String = data::cat_file(object, expected)?;
     println!("{}", content);
     Ok(())
 }

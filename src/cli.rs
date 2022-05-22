@@ -22,13 +22,19 @@ enum Commands {
         /// Object to hash
         #[clap(required = true, parse(from_os_str))]
         path: PathBuf,
+
+        /// Specify the type
+        #[clap(short = 't', default_value_t=String::from("blob"))]
+        type_: String,
     },
 
     /// Provide content or type and size information for repository objects
     #[clap(name = "cat-file", arg_required_else_help = true)]
     CatFile {
+        // /// Type of obq
+        // type_: String,
         /// The name of the object to show.
-        #[clap(required = true)]
+        #[clap(required = true, last = true)]
         object: String,
     },
 }
@@ -38,7 +44,7 @@ pub fn parse() -> io::Result<()> {
 
     return match args.command {
         Commands::Init {} => init(),
-        Commands::HashObject { path } => hash_object(path),
+        Commands::HashObject { path, type_: _ } => hash_object(path),
         Commands::CatFile { object } => cat_file(object),
     };
 }

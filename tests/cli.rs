@@ -77,3 +77,8 @@ fn cat_file_subcommand() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+
+#[test]
+fn cli_tests() {
+    trycmd::TestCases::new().case("tests/cmd/*.trycmd");
+}

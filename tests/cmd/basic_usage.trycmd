@@ -1,0 +1,29 @@
+Show usage:
+```
+$ rustig
+? 2
+rustig 
+A git clone in Rust
+
+USAGE:
+    rustig [OPTIONS] <SUBCOMMAND>
+
+OPTIONS:
+    -h, --help       Print help information
+    -q, --quiet      Less output per occurrence
+    -v, --verbose    More output per occurrence
+
+SUBCOMMANDS:
+    cat-file       Provide content for repository objects
+    hash-object    Compute object ID and create a blob from a file
+    help           Print this message or the help of the given subcommand(s)
+    init           Create an empty rustig repository
+
+```
+
+Initialize a new `rustig` repository:
+```
+$ rustig init
+Initialized empty Rustig repository in [CWD]/.rustig
+
+```

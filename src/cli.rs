@@ -16,21 +16,21 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Commands {
-    /// Create an empty Rustig repository or reinitialize an existing one
+    /// Create an empty rustig repository
     Init,
 
-    /// Compute object ID and optionally creates a blob from a file
+    /// Compute object ID and create a blob from a file
     #[clap(name = "hash-object", arg_required_else_help = true)]
     HashObject {
-        /// Object to hash
+        /// File to hash
         #[clap(required = true, parse(from_os_str))]
         path: PathBuf,
     },
 
-    /// Provide content or type and size information for repository objects
+    /// Provide content for repository objects
     #[clap(name = "cat-file", arg_required_else_help = true)]
     CatFile {
-        /// The name of the object to show.
+        /// Object to show
         #[clap(required = true)]
         object: String,
     },

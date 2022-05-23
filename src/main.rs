@@ -5,7 +5,7 @@ fn main() {
     std::process::exit(match cli::parse() {
         Ok(_) => 0,
         Err(err) => {
-            println!("{:?}", err);
+            println!("fatal: {}", err);
             -1
         }
     });

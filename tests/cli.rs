@@ -48,9 +48,9 @@ fn hash_object_subcommand() -> Result<(), Box<dyn std::error::Error>> {
 
     // then
     cmd.assert().success().stdout(predicate::str::contains(
-        "cc67029eb5860e56e3ccefaf6036e80380fe8372",
+        "9cd51de1c206221527fd40ae2b45cfdd96b8fb07",
     ));
-    temp.child(".rustig/objects/cc67029eb5860e56e3ccefaf6036e80380fe8372")
+    temp.child(".rustig/objects/9cd51de1c206221527fd40ae2b45cfdd96b8fb07")
         .assert(predicate::path::exists());
     temp.close()?;
 

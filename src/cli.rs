@@ -50,7 +50,7 @@ fn init() -> io::Result<()> {
 }
 
 fn hash_object(path: PathBuf) -> io::Result<()> {
-    let hash = data::hash_object(path)?;
+    let hash = data::hash_object(path, None)?;
     println!("{}", hash);
     Ok(())
 }

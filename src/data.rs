@@ -1,13 +1,14 @@
 use anyhow::Context as Context_;
 use sha1::{Digest, Sha1};
+use std::str::FromStr;
 use std::string::ToString;
 use std::{
     fs::{self},
     path::PathBuf,
 };
-use strum_macros::Display;
+use strum_macros::{Display, EnumString};
 
-#[derive(Display, Debug)]
+#[derive(Display, Debug, PartialEq, EnumString)]
 pub enum ObjectType {
     #[strum(serialize = "blob")]
     Blob,
@@ -46,10 +47,37 @@ impl Context {
         Ok(hash)
     }
 
-    pub fn get_object(&self, object: String) -> anyhow::Result<String> {
-        let path = self.obj_dir().join(object);
-        let data = fs::read_to_string(path)?;
-        Ok(data)
+    pub fn get_object(
+        &self,
+        object: String,
+        expected: Option<ObjectType>,
+    ) -> anyhow::Result<String> {
+        let object_path = self.obj_dir().join(object);
+        let object = fs::read_to_string(&object_path)
+            .context(format!("could not read object '{}'", object_path.display()))?;
+        let (object_type, object_data) = object.split_once('\0').context(format!(
+            "could not parse object '{}'",
+            object_path.display()
+        ))?;
+        // FIXME: `from_str` returns unclear error msg: "Matching variant not found".
+        //  Replace it with "unrecognized type '{}'".
+        let object_type_enum = ObjectType::from_str(object_type).context(format!(
+            "could not parse object '{}'",
+            object_path.display()
+        ))?;
+
+        if let Some(x) = expected {
+            if x != object_type_enum {
+                return Err(anyhow::Error::msg(format!(
+                    "could not parse object '{}': expected type '{}' but got '{}'",
+                    object_path.display(),
+                    object_type,
+                    x.to_string()
+                )));
+            }
+        }
+
+        Ok(object_data.to_string())
     }
 
     fn obj_dir(&self) -> PathBuf {

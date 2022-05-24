@@ -29,7 +29,7 @@ impl Context {
         Ok(hash)
     }
 
-    pub fn cat_file(&self, object: String) -> Result<String> {
+    pub fn get_object(&self, object: String) -> Result<String> {
         let path = self.obj_dir().join(object);
         let data = fs::read_to_string(path)?;
         Ok(data)

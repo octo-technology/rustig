@@ -69,7 +69,7 @@ fn hash_object(context: &data::Context, path: PathBuf) -> io::Result<()> {
 }
 
 fn cat_file(context: &data::Context, object: String) -> io::Result<()> {
-    let content = context.cat_file(object)?;
+    let content = context.get_object(object)?;
     println!("{}", content);
     Ok(())
 }

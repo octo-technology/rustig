@@ -1,9 +1,17 @@
 use sha1::{Digest, Sha1};
+use std::string::ToString;
 use std::{
     fs::{self},
     io::Result,
     path::PathBuf,
 };
+use strum_macros::Display;
+
+#[derive(Display, Debug)]
+pub enum ObjectType {
+    #[strum(serialize = "blob")]
+    Blob,
+}
 
 pub struct Context {
     pub work_dir: PathBuf,
@@ -16,15 +24,17 @@ impl Context {
         Ok(self.repo_dir.display().to_string())
     }
 
-    pub fn hash_object(&self, path: PathBuf) -> Result<String> {
-        let data = fs::read(path)?;
+    pub fn hash_object(&self, path: PathBuf, type_: Option<ObjectType>) -> Result<String> {
+        let object_data = fs::read_to_string(path)?;
+        let object_type = type_.unwrap_or(ObjectType::Blob).to_string();
+        let object = [object_type, object_data].join("\0");
 
         let mut hasher = Sha1::new();
-        hasher.update(&data);
+        hasher.update(&object);
         let hash = format!("{:x}", hasher.finalize());
 
-        let path = self.obj_dir().join(&hash);
-        fs::write(path, data)?;
+        let object_path = self.obj_dir().join(&hash);
+        fs::write(object_path, object)?;
 
         Ok(hash)
     }

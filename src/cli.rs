@@ -63,7 +63,7 @@ fn init(context: &data::Context) -> io::Result<()> {
 }
 
 fn hash_object(context: &data::Context, path: PathBuf) -> io::Result<()> {
-    let hash = context.hash_object(path)?;
+    let hash = context.hash_object(path, None)?;
     println!("{}", hash);
     Ok(())
 }

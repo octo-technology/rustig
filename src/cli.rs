@@ -1,7 +1,8 @@
 use crate::data;
+use anyhow::Context;
 use clap::{Parser, Subcommand};
 use clap_verbosity_flag::Verbosity;
-use std::{env, io, path::PathBuf};
+use std::{env, path::PathBuf};
 
 #[derive(Parser, Debug)]
 #[clap(about = "A git clone in Rust", long_about = None)]
@@ -36,7 +37,7 @@ enum Commands {
     },
 }
 
-pub fn parse() -> io::Result<()> {
+pub fn parse() -> anyhow::Result<()> {
     let args = Cli::parse();
 
     env_logger::Builder::new()
@@ -44,9 +45,10 @@ pub fn parse() -> io::Result<()> {
         .init();
 
     log::trace!("Building execution context");
+    let work_dir = env::current_dir().context("could not resolve current working directory")?;
     let context = data::Context {
-        work_dir: env::current_dir()?, // TODO: supplyable via global flag `--work-tree`
-        repo_dir: env::current_dir()?.join(".rustig"), // TODO: supplyable via global flag `--git-dir`
+        work_dir: PathBuf::from(&work_dir), // TODO: supplyable via global flag `--work-tree`
+        repo_dir: work_dir.join(".rustig"), // TODO: supplyable via global flag `--git-dir`
     };
 
     return match args.command {
@@ -56,19 +58,19 @@ pub fn parse() -> io::Result<()> {
     };
 }
 
-fn init(context: &data::Context) -> io::Result<()> {
+fn init(context: &data::Context) -> anyhow::Result<()> {
     let repo_dir = context.init()?;
     println!("Initialized empty Rustig repository in {}", repo_dir);
     Ok(())
 }
 
-fn hash_object(context: &data::Context, path: PathBuf) -> io::Result<()> {
+fn hash_object(context: &data::Context, path: PathBuf) -> anyhow::Result<()> {
     let hash = context.hash_object(path, None)?;
     println!("{}", hash);
     Ok(())
 }
 
-fn cat_file(context: &data::Context, object: String) -> io::Result<()> {
+fn cat_file(context: &data::Context, object: String) -> anyhow::Result<()> {
     let content = context.get_object(object)?;
     println!("{}", content);
     Ok(())

@@ -1,8 +1,8 @@
+use anyhow::Context as Context_;
 use sha1::{Digest, Sha1};
 use std::string::ToString;
 use std::{
     fs::{self},
-    io::Result,
     path::PathBuf,
 };
 use strum_macros::Display;
@@ -19,13 +19,17 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn init(&self) -> Result<String> {
-        fs::create_dir_all(self.obj_dir().as_path())?;
+    pub fn init(&self) -> anyhow::Result<String> {
+        fs::create_dir_all(self.obj_dir().as_path()).context(format!(
+            "could not create directory '{}'",
+            self.obj_dir().display()
+        ))?;
         Ok(self.repo_dir.display().to_string())
     }
 
-    pub fn hash_object(&self, path: PathBuf, type_: Option<ObjectType>) -> Result<String> {
-        let object_data = fs::read_to_string(path)?;
+    pub fn hash_object(&self, path: PathBuf, type_: Option<ObjectType>) -> anyhow::Result<String> {
+        let object_data =
+            fs::read_to_string(&path).context(format!("could not read '{}'", path.display()))?;
         let object_type = type_.unwrap_or(ObjectType::Blob).to_string();
         let object = [object_type, object_data].join("\0");
 
@@ -34,12 +38,15 @@ impl Context {
         let hash = format!("{:x}", hasher.finalize());
 
         let object_path = self.obj_dir().join(&hash);
-        fs::write(object_path, object)?;
+        fs::write(&object_path, object).context(format!(
+            "could not write object '{}'",
+            object_path.display()
+        ))?;
 
         Ok(hash)
     }
 
-    pub fn get_object(&self, object: String) -> Result<String> {
+    pub fn get_object(&self, object: String) -> anyhow::Result<String> {
         let path = self.obj_dir().join(object);
         let data = fs::read_to_string(path)?;
         Ok(data)

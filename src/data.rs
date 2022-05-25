@@ -20,6 +20,14 @@ pub struct Context {
 }
 
 impl Context {
+    pub fn ensure_init(&self) -> anyhow::Result<()> {
+        self.obj_dir()
+            .as_path()
+            .is_dir()
+            .then(|| ())
+            .ok_or(anyhow::Error::msg("not a rustig repository"))
+    }
+
     pub fn init(&self) -> anyhow::Result<String> {
         fs::create_dir_all(self.obj_dir().as_path()).context(format!(
             "could not create directory '{}'",

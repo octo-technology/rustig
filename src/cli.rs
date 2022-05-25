@@ -65,12 +65,14 @@ fn init(context: &data::Context) -> anyhow::Result<()> {
 }
 
 fn hash_object(context: &data::Context, path: PathBuf) -> anyhow::Result<()> {
+    context.ensure_init()?;
     let hash = context.hash_object(path, None)?;
     println!("{}", hash);
     Ok(())
 }
 
 fn cat_file(context: &data::Context, object: String) -> anyhow::Result<()> {
+    context.ensure_init()?;
     let content = context.get_object(object, None)?;
     println!("{}", content);
     Ok(())

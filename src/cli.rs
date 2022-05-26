@@ -1,6 +1,5 @@
 use crate::data;
 use clap::{Parser, Subcommand};
-use std::io;
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
@@ -33,7 +32,7 @@ enum Commands {
     },
 }
 
-pub fn parse() -> io::Result<()> {
+pub fn parse() -> anyhow::Result<()> {
     let args = Cli::parse();
 
     return match args.command {
@@ -43,20 +42,20 @@ pub fn parse() -> io::Result<()> {
     };
 }
 
-fn init() -> io::Result<()> {
+fn init() -> anyhow::Result<()> {
     let git_dir = data::init()?;
     println!("Initialized empty Rustig repository in {}", git_dir);
     Ok(())
 }
 
-fn hash_object(path: PathBuf) -> io::Result<()> {
+fn hash_object(path: PathBuf) -> anyhow::Result<()> {
     let hash = data::hash_object(path, None)?;
     println!("{}", hash);
     Ok(())
 }
 
-fn cat_file(object: String) -> io::Result<()> {
-    let content = data::cat_file(object)?;
+fn cat_file(object: String) -> anyhow::Result<()> {
+    let content = data::cat_file(object, None)?;
     println!("{}", content);
     Ok(())
 }

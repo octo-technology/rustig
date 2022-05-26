@@ -62,16 +62,40 @@ fn cat_file_subcommand() -> Result<(), Box<dyn std::error::Error>> {
     // given
     let mut cmd = Command::cargo_bin("rustig")?;
     let temp = create_and_set_current_dir(false)?;
-    let temp_file = temp.child(".rustig/objects/cc67029eb5860e56e3ccefaf6036e80380fe8372");
-    temp_file.write_str("Bacon ipsum dolor amet doner pork chop filet mignon beef ribs.\n")?;
+    let temp_file = temp.child(".rustig/objects/9cd51de1c206221527fd40ae2b45cfdd96b8fb07");
+    temp_file
+        .write_str("blob\0Bacon ipsum dolor amet doner pork chop filet mignon beef ribs.\n")?;
 
     // when
     cmd.arg("cat-file")
-        .arg("cc67029eb5860e56e3ccefaf6036e80380fe8372");
+        .arg("9cd51de1c206221527fd40ae2b45cfdd96b8fb07");
 
     // then
     cmd.assert().success().stdout(predicate::str::contains(
         "Bacon ipsum dolor amet doner pork chop filet mignon beef ribs.\n",
+    ));
+    temp.close()?;
+
+    Ok(())
+}
+
+#[test]
+fn cat_file_invalid_type_subcommand() -> Result<(), Box<dyn std::error::Error>> {
+    // given
+    let mut cmd = Command::cargo_bin("rustig")?;
+    let temp = create_and_set_current_dir(false)?;
+    let temp_file = temp.child(".rustig/objects/9cd51de1c206221527fd40ae2b45cfdd96b8fb07");
+    temp_file.write_str(
+        "invalid_type\0Bacon ipsum dolor amet doner pork chop filet mignon beef ribs.\n",
+    )?;
+
+    // when
+    cmd.arg("cat-file")
+        .arg("9cd51de1c206221527fd40ae2b45cfdd96b8fb07");
+
+    // then
+    cmd.assert().failure().stderr(predicate::str::contains(
+        "Invalid type (expected \"blob\", got \"invalid_type\")",
     ));
     temp.close()?;
 

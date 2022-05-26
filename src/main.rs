@@ -1,3 +1,4 @@
+mod base;
 mod cli;
 mod data;
 mod error;

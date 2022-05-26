@@ -1,3 +1,4 @@
+use crate::base;
 use crate::data;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
@@ -30,6 +31,10 @@ enum Commands {
         #[clap(required = true)]
         object: String,
     },
+
+    /// Create a tree object from the current index
+    #[clap(name = "write-tree")]
+    WriteTree,
 }
 
 pub fn parse() -> anyhow::Result<()> {
@@ -39,6 +44,7 @@ pub fn parse() -> anyhow::Result<()> {
         Commands::Init {} => init(),
         Commands::HashObject { path } => hash_object(path),
         Commands::CatFile { object } => cat_file(object),
+        Commands::WriteTree {} => write_tree(),
     };
 }
 
@@ -57,5 +63,10 @@ fn hash_object(path: PathBuf) -> anyhow::Result<()> {
 fn cat_file(object: String) -> anyhow::Result<()> {
     let content = data::cat_file(object, None)?;
     println!("{}", content);
+    Ok(())
+}
+
+fn write_tree() -> anyhow::Result<()> {
+    base::write_tree(None)?;
     Ok(())
 }

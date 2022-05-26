@@ -101,3 +101,26 @@ fn cat_file_invalid_type_subcommand() -> Result<(), Box<dyn std::error::Error>> 
 
     Ok(())
 }
+
+#[test]
+fn write_tree_subcommand() -> Result<(), Box<dyn std::error::Error>> {
+    // given
+    let mut cmd = Command::cargo_bin("rustig")?;
+    let temp = create_and_set_current_dir(false)?;
+    temp.child(".rustig/ignore_me.txt").touch()?;
+    temp.child("foo.txt").touch()?;
+    temp.child("bar/baz.txt").touch()?;
+
+    // when
+    cmd.arg("write-tree");
+
+    // then
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("foo.txt"))
+        .stdout(predicate::str::contains("bar/baz.txt"))
+        .stdout(predicate::str::contains(".rustig").count(0));
+
+    temp.close()?;
+    Ok(())
+}

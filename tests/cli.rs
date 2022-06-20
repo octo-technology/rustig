@@ -5,7 +5,6 @@ use std::process::Command; // Run programs
 
 fn create_and_set_current_dir(create_objects: bool) -> Result<TempDir, Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;
-    env::set_current_dir(&temp)?;
 
     if create_objects {
         temp.child(".rustig/objects").create_dir_all()?;
@@ -21,7 +20,7 @@ fn init_subcommand() -> Result<(), Box<dyn std::error::Error>> {
     let temp = create_and_set_current_dir(false)?;
 
     // when
-    cmd.arg("init");
+    cmd.arg("init").current_dir(&temp);
 
     // then
     cmd.assert()
@@ -44,7 +43,7 @@ fn hash_object_subcommand() -> Result<(), Box<dyn std::error::Error>> {
     temp_file.write_str("Bacon ipsum dolor amet doner pork chop filet mignon beef ribs.\n")?;
 
     // when
-    cmd.arg("hash-object").arg(temp_file.path());
+    cmd.arg("hash-object").arg(temp_file.path()).current_dir(&temp);
 
     // then
     cmd.assert().success().stdout(predicate::str::contains(
@@ -68,7 +67,7 @@ fn cat_file_subcommand() -> Result<(), Box<dyn std::error::Error>> {
 
     // when
     cmd.arg("cat-file")
-        .arg("9cd51de1c206221527fd40ae2b45cfdd96b8fb07");
+        .arg("9cd51de1c206221527fd40ae2b45cfdd96b8fb07").current_dir(&temp);
 
     // then
     cmd.assert().success().stdout(predicate::str::contains(
@@ -91,7 +90,7 @@ fn cat_file_invalid_type_subcommand() -> Result<(), Box<dyn std::error::Error>> 
 
     // when
     cmd.arg("cat-file")
-        .arg("9cd51de1c206221527fd40ae2b45cfdd96b8fb07");
+        .arg("9cd51de1c206221527fd40ae2b45cfdd96b8fb07").current_dir(&temp);
 
     // then
     cmd.assert().failure().stderr(predicate::str::contains(
@@ -112,7 +111,7 @@ fn write_tree_subcommand() -> Result<(), Box<dyn std::error::Error>> {
     temp.child("bar/baz.txt").touch()?;
 
     // when
-    cmd.arg("write-tree");
+    cmd.arg("write-tree").current_dir(&temp);
 
     // then
     cmd.assert()

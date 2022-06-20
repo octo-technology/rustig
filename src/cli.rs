@@ -1,6 +1,6 @@
+use crate::base;
 use crate::data;
 use clap::{Parser, Subcommand};
-use std::io;
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
@@ -31,32 +31,42 @@ enum Commands {
         #[clap(required = true)]
         object: String,
     },
+
+    /// Create a tree object from the current index
+    #[clap(name = "write-tree")]
+    WriteTree,
 }
 
-pub fn parse() -> io::Result<()> {
+pub fn parse() -> anyhow::Result<()> {
     let args = Cli::parse();
 
     return match args.command {
         Commands::Init {} => init(),
         Commands::HashObject { path } => hash_object(path),
         Commands::CatFile { object } => cat_file(object),
+        Commands::WriteTree {} => write_tree(),
     };
 }
 
-fn init() -> io::Result<()> {
+fn init() -> anyhow::Result<()> {
     let git_dir = data::init()?;
     println!("Initialized empty Rustig repository in {}", git_dir);
     Ok(())
 }
 
-fn hash_object(path: PathBuf) -> io::Result<()> {
-    let hash = data::hash_object(path)?;
+fn hash_object(path: PathBuf) -> anyhow::Result<()> {
+    let hash = data::hash_object(path, None)?;
     println!("{}", hash);
     Ok(())
 }
 
-fn cat_file(object: String) -> io::Result<()> {
-    let content = data::cat_file(object)?;
+fn cat_file(object: String) -> anyhow::Result<()> {
+    let content = data::cat_file(object, None)?;
     println!("{}", content);
+    Ok(())
+}
+
+fn write_tree() -> anyhow::Result<()> {
+    base::write_tree(None)?;
     Ok(())
 }

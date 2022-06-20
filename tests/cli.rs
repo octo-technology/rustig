@@ -1,7 +1,7 @@
 use assert_cmd::prelude::*; // Add methods on commands
 use assert_fs::{prelude::*, TempDir};
 use predicates::prelude::*; // Used for writing assertions
-use std::{env, process::Command}; // Run programs
+use std::process::Command; // Run programs
 
 fn create_and_set_current_dir(create_objects: bool) -> Result<TempDir, Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new()?;

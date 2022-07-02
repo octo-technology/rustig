@@ -6,7 +6,7 @@ fn main() {
         Ok(_) => 0,
         Err(err) => {
             eprintln!("fatal: {:#}", err);
-            -1
+            1
         }
     });
 }

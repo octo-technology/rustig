@@ -2,11 +2,9 @@ use anyhow::{anyhow, Context as Context_};
 use sha1::{Digest, Sha1};
 use std::str::FromStr;
 use std::string::ToString;
-use std::{
-    fs::{self},
-    path::PathBuf,
-};
+use std::{fs, path::PathBuf};
 use strum_macros::{Display, EnumString};
+use walkdir::WalkDir;
 
 #[derive(Display, Debug, PartialEq, EnumString)]
 pub enum ObjectType {
@@ -84,6 +82,15 @@ impl Context {
             )),
             _ => Ok(object_data.to_string()),
         }
+    }
+
+    pub fn write_tree(&self) -> anyhow::Result<Vec<String>> {
+        Ok(WalkDir::new(&self.work_dir)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|e| !e.path().starts_with(&self.repo_dir))
+            .map(|e| e.file_name().to_string_lossy().to_string())
+            .collect())
     }
 
     fn obj_dir(&self) -> PathBuf {

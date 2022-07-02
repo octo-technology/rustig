@@ -691,6 +691,7 @@ dependencies = [
  "strum",
  "strum_macros",
  "trycmd",
+ "walkdir",
 ]
 
 [[package]]

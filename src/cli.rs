@@ -35,6 +35,10 @@ enum Commands {
         #[clap(required = true)]
         object: String,
     },
+
+    /// Create a tree object from the current index
+    #[clap(name = "write-tree")]
+    WriteTree,
 }
 
 pub fn parse() -> anyhow::Result<()> {
@@ -55,6 +59,7 @@ pub fn parse() -> anyhow::Result<()> {
         Commands::Init => init(&context),
         Commands::HashObject { path } => hash_object(&context, path),
         Commands::CatFile { object } => cat_file(&context, object),
+        Commands::WriteTree => write_tree(&context),
     };
 }
 
@@ -72,5 +77,11 @@ fn hash_object(context: &data::Context, path: PathBuf) -> anyhow::Result<()> {
 fn cat_file(context: &data::Context, object: String) -> anyhow::Result<()> {
     context.ensure_init()?;
     println!("{}", context.get_object(object, None)?);
+    Ok(())
+}
+
+fn write_tree(context: &data::Context) -> anyhow::Result<()> {
+    context.ensure_init()?;
+    println!("{}", context.write_tree()?.join("\n"));
     Ok(())
 }

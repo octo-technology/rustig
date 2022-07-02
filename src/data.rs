@@ -1,4 +1,4 @@
-use anyhow::Context as Context_;
+use anyhow::{anyhow, Context as Context_};
 use sha1::{Digest, Sha1};
 use std::str::FromStr;
 use std::string::ToString;
@@ -67,20 +67,21 @@ impl Context {
             "could not parse object '{}'",
             object_path.display()
         ))?;
-        // FIXME: `from_str` returns unclear error msg: "Matching variant not found".
-        //  Replace it with "unrecognized type '{}'".
-        let object_type_enum = ObjectType::from_str(object_type).context(format!(
-            "could not parse object '{}'",
-            object_path.display()
-        ))?;
 
-        if let Some(x) = expected {
-            if x != object_type_enum {
+        let object_type_enum = ObjectType::from_str(object_type)
+            .map_err(|_| anyhow!("unknown type '{}'", object_type))
+            .context(format!(
+                "could not parse object '{}'",
+                object_path.display()
+            ))?;
+
+        if let Some(e) = expected {
+            if e != object_type_enum {
                 return Err(anyhow::Error::msg(format!(
                     "could not parse object '{}': expected type '{}' but got '{}'",
                     object_path.display(),
                     object_type,
-                    x.to_string()
+                    e.to_string()
                 )));
             }
         }

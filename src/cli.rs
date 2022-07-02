@@ -5,7 +5,7 @@ use clap_verbosity_flag::Verbosity;
 use std::{env, path::PathBuf};
 
 #[derive(Parser, Debug)]
-#[clap(about = "A git clone in Rust", long_about = None)]
+#[clap(about = "A bad git clone, in Rust", long_about = None)]
 struct Cli {
     /// The command to run
     #[clap(subcommand)]

@@ -61,28 +61,28 @@ impl Context {
         expected: Option<ObjectType>,
     ) -> anyhow::Result<String> {
         let object_path = self.obj_dir().join(object);
-        let object = fs::read_to_string(&object_path)
+        let object_content = fs::read_to_string(&object_path)
             .context(format!("could not read object '{}'", object_path.display()))?;
-        let (object_type, object_data) = object.split_once('\0').context(format!(
-            "could not parse object '{}'",
+        let (object_type_str, object_data) = object_content.split_once('\0').context(format!(
+            "could not parse object '{}': invalid format",
             object_path.display()
         ))?;
-
-        let object_type_enum = ObjectType::from_str(object_type)
-            .map_err(|_| anyhow!("unknown type '{}'", object_type))
-            .context(format!(
-                "could not parse object '{}'",
-                object_path.display()
-            ))?;
+        let object_type = ObjectType::from_str(object_type_str).map_err(|_| {
+            anyhow!(
+                "could not parse object '{}': unknown type '{}'",
+                object_path.display(),
+                object_type_str
+            )
+        })?;
 
         if let Some(e) = expected {
-            if e != object_type_enum {
-                return Err(anyhow::Error::msg(format!(
+            if e != object_type {
+                return Err(anyhow!(
                     "could not parse object '{}': expected type '{}' but got '{}'",
                     object_path.display(),
-                    object_type,
+                    object_type_str,
                     e.to_string()
-                )));
+                ));
             }
         }
 

@@ -4,6 +4,38 @@ use predicates::prelude::predicate::{eq, path::exists, str::is_match};
 use std::process::Command;
 
 #[test]
+fn missing_subcommand_err() -> Result<(), Box<dyn std::error::Error>> {
+    let cwd = assert_fs::TempDir::new()?;
+    let help_msg = "\
+rustig \
+\nA bad git clone, in Rust
+
+USAGE:
+    rustig [OPTIONS] <SUBCOMMAND>
+
+OPTIONS:
+    -h, --help       Print help information
+    -q, --quiet      Less output per occurrence
+    -v, --verbose    More output per occurrence
+
+SUBCOMMANDS:
+    cat-file       Provide content for repository objects
+    hash-object    Compute object ID and create a blob from a file
+    help           Print this message or the help of the given subcommand(s)
+    init           Create an empty rustig repository
+";
+
+    Command::cargo_bin("rustig")?
+        .current_dir(&cwd)
+        .assert()
+        .code(2)
+        .stderr(eq(help_msg));
+
+    cwd.close()?;
+    Ok(())
+}
+
+#[test]
 fn subcommand_init_ok() -> Result<(), Box<dyn std::error::Error>> {
     let cwd = assert_fs::TempDir::new()?;
 

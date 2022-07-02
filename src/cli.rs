@@ -52,28 +52,25 @@ pub fn parse() -> anyhow::Result<()> {
     };
 
     return match args.command {
-        Commands::Init {} => init(&context),
+        Commands::Init => init(&context),
         Commands::HashObject { path } => hash_object(&context, path),
         Commands::CatFile { object } => cat_file(&context, object),
     };
 }
 
 fn init(context: &data::Context) -> anyhow::Result<()> {
-    let repo_dir = context.init()?;
-    println!("Initialized empty Rustig repository in {}", repo_dir);
+    println!("Initialized empty Rustig repository in {}", context.init()?);
     Ok(())
 }
 
 fn hash_object(context: &data::Context, path: PathBuf) -> anyhow::Result<()> {
     context.ensure_init()?;
-    let hash = context.hash_object(path, None)?;
-    println!("{}", hash);
+    println!("{}", context.hash_object(path, None)?);
     Ok(())
 }
 
 fn cat_file(context: &data::Context, object: String) -> anyhow::Result<()> {
     context.ensure_init()?;
-    let content = context.get_object(object, None)?;
-    println!("{}", content);
+    println!("{}", context.get_object(object, None)?);
     Ok(())
 }

@@ -3,7 +3,7 @@ Show usage:
 $ rustig
 ? 2
 rustig 
-A git clone in Rust
+A bad git clone, in Rust
 
 USAGE:
     rustig [OPTIONS] <SUBCOMMAND>

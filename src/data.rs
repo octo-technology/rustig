@@ -75,18 +75,15 @@ impl Context {
             )
         })?;
 
-        if let Some(e) = expected {
-            if e != object_type {
-                return Err(anyhow!(
-                    "could not parse object '{}': expected type '{}' but got '{}'",
-                    object_path.display(),
-                    object_type_str,
-                    e.to_string()
-                ));
-            }
+        match expected {
+            Some(e) if e != object_type => Err(anyhow!(
+                "could not parse object '{}': expected type '{}' but got '{}'",
+                object_path.display(),
+                object_type_str,
+                e.to_string()
+            )),
+            _ => Ok(object_data.to_string()),
         }
-
-        Ok(object_data.to_string())
     }
 
     fn obj_dir(&self) -> PathBuf {

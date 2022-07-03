@@ -34,19 +34,17 @@ impl Context {
         Ok(self.repo_dir.display().to_string())
     }
 
-    pub fn hash_object(&self, path: PathBuf, type_: ObjectType) -> anyhow::Result<String> {
-        let object_data =
-            fs::read_to_string(&path).context(format!("could not read '{}'", path.display()))?;
-        let object = [type_.to_string(), object_data].join("\0");
+    pub fn hash_object(&self, data: String, type_: ObjectType) -> anyhow::Result<String> {
+        let object = [type_.to_string(), data].join("\0");
 
         let mut hasher = Sha1::new();
         hasher.update(&object);
         let hash = format!("{:x}", hasher.finalize());
 
-        let object_path = self.obj_dir().join(&hash);
-        fs::write(&object_path, object).context(format!(
+        let path = self.obj_dir().join(&hash);
+        fs::write(&path, object).context(format!(
             "could not write object '{}'",
-            object_path.display()
+            path.display()
         ))?;
 
         Ok(hash)

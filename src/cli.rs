@@ -2,7 +2,7 @@ use crate::data::{self, ObjectType};
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use clap_verbosity_flag::Verbosity;
-use std::{env, path::PathBuf};
+use std::{env, fs, path::PathBuf};
 
 #[derive(Parser, Debug)]
 #[clap(about = "A bad git clone, in Rust", long_about = None)]
@@ -70,7 +70,8 @@ fn init(context: &data::Context) -> anyhow::Result<()> {
 
 fn hash_object(context: &data::Context, path: PathBuf) -> anyhow::Result<()> {
     context.ensure_init()?;
-    println!("{}", context.hash_object(path, ObjectType::Blob)?);
+    let data = fs::read_to_string(&path).context(format!("could not read '{}'", path.display()))?;
+    println!("{}", context.hash_object(data, ObjectType::Blob)?);
     Ok(())
 }
 

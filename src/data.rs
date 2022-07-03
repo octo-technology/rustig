@@ -4,12 +4,14 @@ use std::str::FromStr;
 use std::string::ToString;
 use std::{fs, path::PathBuf};
 use strum_macros::{Display, EnumString};
-use walkdir::WalkDir;
 
 #[derive(Display, Debug, PartialEq, EnumString)]
 pub enum ObjectType {
     #[strum(serialize = "blob")]
     Blob,
+
+    #[strum(serialize = "tree")]
+    Tree,
 }
 
 pub struct Context {
@@ -42,10 +44,7 @@ impl Context {
         let hash = format!("{:x}", hasher.finalize());
 
         let path = self.obj_dir().join(&hash);
-        fs::write(&path, object).context(format!(
-            "could not write object '{}'",
-            path.display()
-        ))?;
+        fs::write(&path, object).context(format!("could not write object '{}'", path.display()))?;
 
         Ok(hash)
     }
@@ -81,13 +80,35 @@ impl Context {
         }
     }
 
-    pub fn write_tree(&self) -> anyhow::Result<Vec<String>> {
-        Ok(WalkDir::new(&self.work_dir)
-            .into_iter()
+    pub fn write_tree(&self, path: &PathBuf) -> anyhow::Result<String> {
+        let mut entries = vec![];
+        let files = fs::read_dir(path)
+            .context(format!("could not read '{}'", path.display()))?
             .filter_map(|e| e.ok())
-            .filter(|e| !e.path().starts_with(&self.repo_dir))
-            .map(|e| e.file_name().to_string_lossy().to_string())
-            .collect())
+            .filter(|f| !self.is_ignored(&f.path()));
+
+        for f in files {
+            if f.file_type().map_or(false, |t| t.is_dir()) {
+                let oid = self.write_tree(&f.path())?;
+                entries.push((ObjectType::Tree, oid, f.file_name()));
+            } else {
+                let data = fs::read_to_string(f.path())
+                    .context(format!("could not read '{}'", f.path().display()))?;
+                let oid = self.hash_object(data, ObjectType::Blob)?;
+                entries.push((ObjectType::Blob, oid, f.file_name()));
+            }
+        }
+
+        let data = entries
+            .into_iter()
+            .map(|e| format!("{}\0{}\0{}", e.0, e.1, e.2.to_string_lossy()))
+            .collect::<Vec<String>>()
+            .join("\n");
+        self.hash_object(data, ObjectType::Tree)
+    }
+
+    fn is_ignored(&self, path: &PathBuf) -> bool {
+        path.starts_with(&self.repo_dir)
     }
 
     fn obj_dir(&self) -> PathBuf {

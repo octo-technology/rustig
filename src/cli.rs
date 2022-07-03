@@ -83,6 +83,6 @@ fn cat_file(context: &data::Context, object: String) -> anyhow::Result<()> {
 
 fn write_tree(context: &data::Context) -> anyhow::Result<()> {
     context.ensure_init()?;
-    println!("{}", context.write_tree()?.join("\n"));
+    println!("{}", context.write_tree(&context.work_dir)?);
     Ok(())
 }

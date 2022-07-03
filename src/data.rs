@@ -34,11 +34,10 @@ impl Context {
         Ok(self.repo_dir.display().to_string())
     }
 
-    pub fn hash_object(&self, path: PathBuf, type_: Option<ObjectType>) -> anyhow::Result<String> {
+    pub fn hash_object(&self, path: PathBuf, type_: ObjectType) -> anyhow::Result<String> {
         let object_data =
             fs::read_to_string(&path).context(format!("could not read '{}'", path.display()))?;
-        let object_type = type_.unwrap_or(ObjectType::Blob).to_string();
-        let object = [object_type, object_data].join("\0");
+        let object = [type_.to_string(), object_data].join("\0");
 
         let mut hasher = Sha1::new();
         hasher.update(&object);

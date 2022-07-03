@@ -1,4 +1,4 @@
-use crate::data;
+use crate::data::{self, ObjectType};
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use clap_verbosity_flag::Verbosity;
@@ -70,7 +70,7 @@ fn init(context: &data::Context) -> anyhow::Result<()> {
 
 fn hash_object(context: &data::Context, path: PathBuf) -> anyhow::Result<()> {
     context.ensure_init()?;
-    println!("{}", context.hash_object(path, None)?);
+    println!("{}", context.hash_object(path, ObjectType::Blob)?);
     Ok(())
 }
 

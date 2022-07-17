@@ -36,8 +36,8 @@ impl Context {
         Ok(self.repo_dir.display().to_string())
     }
 
-    pub fn hash_object(&self, data: String, type_: ObjectType) -> anyhow::Result<String> {
-        let object = [type_.to_string(), data].join("\0");
+    pub fn hash_object(&self, data: String, typ: ObjectType) -> anyhow::Result<String> {
+        let object = [typ.to_string(), data].join("\0");
 
         let mut hasher = Sha1::new();
         hasher.update(&object);
@@ -49,11 +49,7 @@ impl Context {
         Ok(hash)
     }
 
-    pub fn get_object(
-        &self,
-        object: String,
-        expected: Option<ObjectType>,
-    ) -> anyhow::Result<String> {
+    pub fn get_object(&self, object: String, expected: &[ObjectType]) -> anyhow::Result<String> {
         let object_path = self.obj_dir().join(object);
         let object_content = fs::read_to_string(&object_path)
             .context(format!("could not read object '{}'", object_path.display()))?;
@@ -69,14 +65,19 @@ impl Context {
             )
         })?;
 
-        match expected {
-            Some(e) if e != object_type => Err(anyhow!(
-                "could not parse object '{}': expected type '{}' but got '{}'",
+        if !expected.is_empty() && !expected.contains(&object_type) {
+            Err(anyhow!(
+                "could not parse object '{}': expected type to be one of [{}] but got '{}'",
                 object_path.display(),
-                object_type_str,
-                e.to_string()
-            )),
-            _ => Ok(object_data.to_string()),
+                expected
+                    .into_iter()
+                    .map(|e| format!("'{}'", e))
+                    .collect::<Vec<String>>()
+                    .join(", "),
+                object_type_str
+            ))
+        } else {
+            Ok(object_data.to_string())
         }
     }
 
@@ -105,6 +106,51 @@ impl Context {
             .collect::<Vec<String>>()
             .join("\n");
         self.hash_object(data, ObjectType::Tree)
+    }
+
+    pub fn read_tree(&self, object: String, path: &PathBuf) -> anyhow::Result<()> {
+        let object_path = self.obj_dir().join(&object);
+        let data = self.get_object(object, &[ObjectType::Tree])?;
+
+        if data == "" {
+            // tree objects containing no entries (i.e. empty dirs)
+            return Ok(());
+        }
+        for e in data.split("\n") {
+            let (type_str, rest) = e.split_once('\0').context(format!(
+                "could not parse object '{}': invalid format",
+                object_path.display()
+            ))?;
+            let (oid, name) = rest.split_once('\0').context(format!(
+                "could not parse object '{}': invalid format",
+                object_path.display()
+            ))?;
+            let object_type = ObjectType::from_str(type_str).map_err(|_| {
+                anyhow!(
+                    "could not parse object '{}': unknown type '{}'",
+                    object_path.display(),
+                    type_str
+                )
+            })?;
+
+            let new_path = path.join(name);
+            match object_type {
+                ObjectType::Blob => {
+                    let new_data = self.get_object(oid.to_string(), &[ObjectType::Blob])?;
+                    fs::write(&new_path, new_data)
+                        .context(format!("could not write file '{}'", new_path.display()))?;
+                }
+                ObjectType::Tree => {
+                    fs::create_dir(&new_path).context(format!(
+                        "could not create directory '{}'",
+                        new_path.display()
+                    ))?;
+                    self.read_tree(oid.to_string(), &new_path)?;
+                }
+            };
+        }
+
+        Ok(())
     }
 
     fn is_ignored(&self, path: &PathBuf) -> bool {

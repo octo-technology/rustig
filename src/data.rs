@@ -49,11 +49,7 @@ impl Context {
         Ok(hash)
     }
 
-    pub fn get_object(
-        &self,
-        object: String,
-        expected: Option<ObjectType>,
-    ) -> anyhow::Result<Vec<u8>> {
+    pub fn get_object(&self, object: String, expected: &[ObjectType]) -> anyhow::Result<Vec<u8>> {
         let object_path = self.obj_dir().join(object);
         let object_content = fs::read(&object_path)
             .context(format!("could not read object '{}'", object_path.display()))?;
@@ -80,14 +76,19 @@ impl Context {
             )
         })?;
 
-        match expected {
-            Some(e) if e != object_type => Err(anyhow!(
-                "could not parse object '{}': expected type '{}' but got '{}'",
+        if !expected.is_empty() && !expected.contains(&object_type) {
+            Err(anyhow!(
+                "could not parse object '{}': expected type to be one of [{}] but got '{}'",
                 object_path.display(),
-                e.to_string(),
+                expected
+                    .into_iter()
+                    .map(|e| format!("'{}'", e))
+                    .collect::<Vec<String>>()
+                    .join(", "),
                 object_type_str
-            )),
-            _ => Ok(object_data[1..].to_vec()),
+            ))
+        } else {
+            Ok(object_data[1..].to_vec())
         }
     }
 

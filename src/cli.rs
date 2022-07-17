@@ -80,7 +80,7 @@ fn cat_file(context: &data::Context, object: String) -> anyhow::Result<()> {
     context.ensure_init()?;
     println!(
         "{}",
-        String::from_utf8_lossy(&context.get_object(object, None)?)
+        String::from_utf8_lossy(&context.get_object(object, &[])?)
     );
     Ok(())
 }

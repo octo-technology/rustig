@@ -1,125 +1,229 @@
-use assert_cmd::prelude::*; // Add methods on commands
-use assert_fs::{prelude::*, TempDir};
-use predicates::prelude::*; // Used for writing assertions
-use std::process::Command; // Run programs
+use assert_cmd::prelude::{CommandCargoExt, OutputAssertExt};
+use assert_fs::prelude::*;
+use predicates::prelude::predicate::{eq, path::exists, str::is_match};
+use std::process::Command;
 
-fn create_and_set_current_dir(create_objects: bool) -> Result<TempDir, Box<dyn std::error::Error>> {
-    let temp = assert_fs::TempDir::new()?;
+#[test]
+fn missing_subcommand_err() -> Result<(), Box<dyn std::error::Error>> {
+    let cwd = assert_fs::TempDir::new()?;
+    let help_msg = "\
+rustig \
+\nA bad git clone, in Rust
 
-    if create_objects {
-        temp.child(".rustig/objects").create_dir_all()?;
-    }
+USAGE:
+    rustig [OPTIONS] <SUBCOMMAND>
 
-    return Ok(temp);
+OPTIONS:
+    -h, --help       Print help information
+    -q, --quiet      Less output per occurrence
+    -v, --verbose    More output per occurrence
+
+SUBCOMMANDS:
+    cat-file       Provide content for repository objects
+    hash-object    Compute object ID and create a blob from a file
+    help           Print this message or the help of the given subcommand(s)
+    init           Create an empty rustig repository
+    write-tree     Create a tree object from the current index
+";
+
+    Command::cargo_bin("rustig")?
+        .current_dir(&cwd)
+        .assert()
+        .code(2)
+        .stderr(eq(help_msg));
+
+    cwd.close()?;
+    Ok(())
 }
 
 #[test]
-fn init_subcommand() -> Result<(), Box<dyn std::error::Error>> {
-    // given
-    let mut cmd = Command::cargo_bin("rustig")?;
-    let temp = create_and_set_current_dir(false)?;
+fn subcommand_init_ok() -> Result<(), Box<dyn std::error::Error>> {
+    let cwd = assert_fs::TempDir::new()?;
 
-    // when
-    cmd.arg("init").current_dir(&temp);
-
-    // then
-    cmd.assert()
+    Command::cargo_bin("rustig")?
+        .current_dir(&cwd)
+        .arg("init")
+        .assert()
         .success()
-        .stdout(predicate::str::contains("Initialized"));
-    temp.child(".rustig").assert(predicate::path::exists());
-    temp.child(".rustig/objects")
-        .assert(predicate::path::exists());
-    temp.close()?;
+        .stdout(is_match("^Initialized empty Rustig repository in /.*/\\.rustig\n$").unwrap());
+    cwd.child(".rustig").assert(exists());
+    cwd.child(".rustig/objects").assert(exists());
 
+    cwd.close()?;
     Ok(())
 }
 
 #[test]
-fn hash_object_subcommand() -> Result<(), Box<dyn std::error::Error>> {
-    // given
-    let mut cmd = Command::cargo_bin("rustig")?;
-    let temp = create_and_set_current_dir(true)?;
-    let temp_file = temp.child("test.txt");
-    temp_file.write_str("Bacon ipsum dolor amet doner pork chop filet mignon beef ribs.\n")?;
+fn subcommand_hash_object_ok() -> Result<(), Box<dyn std::error::Error>> {
+    let cwd = assert_fs::TempDir::new()?;
+    let file = cwd.child("some_file.txt");
+    file.write_str("Some content.\n")?;
 
-    // when
-    cmd.arg("hash-object").arg(temp_file.path()).current_dir(&temp);
+    Command::cargo_bin("rustig")?
+        .current_dir(&cwd)
+        .arg("init")
+        .assert()
+        .success();
 
-    // then
-    cmd.assert().success().stdout(predicate::str::contains(
-        "9cd51de1c206221527fd40ae2b45cfdd96b8fb07",
-    ));
-    temp.child(".rustig/objects/9cd51de1c206221527fd40ae2b45cfdd96b8fb07")
-        .assert(predicate::path::exists());
-    temp.close()?;
-
-    Ok(())
-}
-
-#[test]
-fn cat_file_subcommand() -> Result<(), Box<dyn std::error::Error>> {
-    // given
-    let mut cmd = Command::cargo_bin("rustig")?;
-    let temp = create_and_set_current_dir(false)?;
-    let temp_file = temp.child(".rustig/objects/9cd51de1c206221527fd40ae2b45cfdd96b8fb07");
-    temp_file
-        .write_str("blob\0Bacon ipsum dolor amet doner pork chop filet mignon beef ribs.\n")?;
-
-    // when
-    cmd.arg("cat-file")
-        .arg("9cd51de1c206221527fd40ae2b45cfdd96b8fb07").current_dir(&temp);
-
-    // then
-    cmd.assert().success().stdout(predicate::str::contains(
-        "Bacon ipsum dolor amet doner pork chop filet mignon beef ribs.\n",
-    ));
-    temp.close()?;
-
-    Ok(())
-}
-
-#[test]
-fn cat_file_invalid_type_subcommand() -> Result<(), Box<dyn std::error::Error>> {
-    // given
-    let mut cmd = Command::cargo_bin("rustig")?;
-    let temp = create_and_set_current_dir(false)?;
-    let temp_file = temp.child(".rustig/objects/9cd51de1c206221527fd40ae2b45cfdd96b8fb07");
-    temp_file.write_str(
-        "invalid_type\0Bacon ipsum dolor amet doner pork chop filet mignon beef ribs.\n",
-    )?;
-
-    // when
-    cmd.arg("cat-file")
-        .arg("9cd51de1c206221527fd40ae2b45cfdd96b8fb07").current_dir(&temp);
-
-    // then
-    cmd.assert().failure().stderr(predicate::str::contains(
-        "Invalid type (expected \"blob\", got \"invalid_type\")",
-    ));
-    temp.close()?;
-
-    Ok(())
-}
-
-#[test]
-fn write_tree_subcommand() -> Result<(), Box<dyn std::error::Error>> {
-    // given
-    let mut cmd = Command::cargo_bin("rustig")?;
-    let temp = create_and_set_current_dir(false)?;
-    temp.child(".rustig/ignore_me.txt").touch()?;
-    temp.child("foo.txt").touch()?;
-    temp.child("bar/baz.txt").touch()?;
-
-    // when
-    cmd.arg("write-tree").current_dir(&temp);
-
-    // then
-    cmd.assert()
+    Command::cargo_bin("rustig")?
+        .current_dir(&cwd)
+        .arg("hash-object")
+        .arg(file.path())
+        .assert()
         .success()
-        .stdout(predicate::str::contains("foo.txt"))
-        .stdout(predicate::str::contains("bar/baz.txt"))
-        .stdout(predicate::str::contains(".rustig").count(0));
+        .stdout(is_match("^d727e363541ff1b8b282bde54a780d05e8007a8f\n$").unwrap());
+    cwd.child(".rustig/objects/d727e363541ff1b8b282bde54a780d05e8007a8f")
+        .assert(exists());
 
-    temp.close()?;
+    cwd.close()?;
     Ok(())
+}
+
+#[test]
+fn subcommand_hash_object_uninitialized_err() -> Result<(), Box<dyn std::error::Error>> {
+    let cwd = assert_fs::TempDir::new()?;
+
+    Command::cargo_bin("rustig")?
+        .current_dir(&cwd)
+        .arg("hash-object")
+        .arg("nonexistent_file.txt")
+        .assert()
+        .code(eq(1))
+        .stderr(is_match("^fatal: not a rustig repository\n$").unwrap());
+
+    cwd.close()?;
+    Ok(())
+}
+
+#[test]
+fn subcommand_hash_object_nonexistent_file_err() -> Result<(), Box<dyn std::error::Error>> {
+    let cwd = assert_fs::TempDir::new()?;
+
+    Command::cargo_bin("rustig")?
+        .current_dir(&cwd)
+        .arg("init")
+        .assert()
+        .success();
+
+    Command::cargo_bin("rustig")?
+        .current_dir(&cwd)
+        .arg("hash-object")
+        .arg("nonexistent_file.txt")
+        .assert()
+        .code(eq(1))
+        .stderr(is_match("^fatal: could not read 'nonexistent_file.txt': No such file or directory \\(os error 2\\)\n$").unwrap());
+
+    cwd.close()?;
+    Ok(())
+}
+
+#[test]
+fn subcommand_cat_file_ok() -> Result<(), Box<dyn std::error::Error>> {
+    let cwd = assert_fs::TempDir::new()?;
+    let file = cwd.child("some_file.txt");
+    file.write_str("Some content.\n")?;
+
+    Command::cargo_bin("rustig")?
+        .current_dir(&cwd)
+        .arg("init")
+        .assert()
+        .success();
+
+    Command::cargo_bin("rustig")?
+        .current_dir(&cwd)
+        .arg("hash-object")
+        .arg(file.path())
+        .assert()
+        .success();
+
+    Command::cargo_bin("rustig")?
+        .current_dir(&cwd)
+        .arg("cat-file")
+        .arg("d727e363541ff1b8b282bde54a780d05e8007a8f")
+        .assert()
+        .success()
+        .stdout(is_match("^Some content.\n\n$").unwrap());
+
+    cwd.close()?;
+    Ok(())
+}
+
+#[test]
+fn subcommand_cat_file_uninitialized_err() -> Result<(), Box<dyn std::error::Error>> {
+    let cwd = assert_fs::TempDir::new()?;
+
+    Command::cargo_bin("rustig")?
+        .current_dir(&cwd)
+        .arg("cat-file")
+        .arg("nonexistent_object")
+        .assert()
+        .code(eq(1))
+        .stderr(is_match("^fatal: not a rustig repository\n$").unwrap());
+
+    cwd.close()?;
+    Ok(())
+}
+
+#[test]
+fn subcommand_cat_file_nonexistent_object_err() -> Result<(), Box<dyn std::error::Error>> {
+    let cwd = assert_fs::TempDir::new()?;
+
+    Command::cargo_bin("rustig")?
+        .current_dir(&cwd)
+        .arg("init")
+        .assert()
+        .success();
+
+    Command::cargo_bin("rustig")?
+        .current_dir(&cwd)
+        .arg("cat-file")
+        .arg("nonexistent_object")
+        .assert()
+        .code(eq(1))
+        .stderr(is_match("^fatal: could not read object '/.*/nonexistent_object': No such file or directory \\(os error 2\\)\n$").unwrap());
+
+    cwd.close()?;
+    Ok(())
+}
+
+#[test]
+fn simple_workflow() -> Result<(), Box<dyn std::error::Error>> {
+    let cwd = assert_fs::TempDir::new()?;
+    let file = cwd.child("some_file.txt");
+    file.write_str("Some content.\n")?;
+
+    Command::cargo_bin("rustig")?
+        .current_dir(&cwd)
+        .arg("init")
+        .assert()
+        .success()
+        .stdout(is_match("^Initialized empty Rustig repository in /.*/\\.rustig\n$").unwrap());
+    cwd.child(".rustig").assert(exists());
+    cwd.child(".rustig/objects").assert(exists());
+
+    Command::cargo_bin("rustig")?
+        .current_dir(&cwd)
+        .arg("hash-object")
+        .arg(file.path())
+        .assert()
+        .success()
+        .stdout(is_match("^d727e363541ff1b8b282bde54a780d05e8007a8f\n$").unwrap());
+    cwd.child(".rustig/objects/d727e363541ff1b8b282bde54a780d05e8007a8f")
+        .assert(exists());
+
+    Command::cargo_bin("rustig")?
+        .current_dir(&cwd)
+        .arg("cat-file")
+        .arg("d727e363541ff1b8b282bde54a780d05e8007a8f")
+        .assert()
+        .success()
+        .stdout(is_match("^Some content.\n\n$").unwrap());
+
+    cwd.close()?;
+    Ok(())
+}
+
+#[test]
+fn cli_tests() {
+    trycmd::TestCases::new().case("tests/cmd/*.trycmd");
 }

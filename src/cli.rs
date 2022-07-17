@@ -1,33 +1,37 @@
-use crate::base;
-use crate::data;
+use crate::data::{self, ObjectType};
+use anyhow::Context;
 use clap::{Parser, Subcommand};
-use std::path::PathBuf;
+use clap_verbosity_flag::Verbosity;
+use std::{env, fs, path::PathBuf};
 
 #[derive(Parser, Debug)]
-#[clap(about = "A git implementation in Rust", long_about = None)]
+#[clap(about = "A bad git clone, in Rust", long_about = None)]
 struct Cli {
     /// The command to run
     #[clap(subcommand)]
     command: Commands,
+
+    #[clap(flatten)]
+    verbose: Verbosity,
 }
 
 #[derive(Debug, Subcommand)]
 enum Commands {
-    /// Create an empty Rustig repository or reinitialize an existing one
+    /// Create an empty rustig repository
     Init,
 
-    /// Compute object ID and optionally creates a blob from a file
+    /// Compute object ID and create a blob from a file
     #[clap(name = "hash-object", arg_required_else_help = true)]
     HashObject {
-        /// Object to hash
+        /// File to hash
         #[clap(required = true, parse(from_os_str))]
         path: PathBuf,
     },
 
-    /// Provide content or type and size information for repository objects
+    /// Provide content for repository objects
     #[clap(name = "cat-file", arg_required_else_help = true)]
     CatFile {
-        /// The name of the object to show.
+        /// Object to show
         #[clap(required = true)]
         object: String,
     },
@@ -40,33 +44,45 @@ enum Commands {
 pub fn parse() -> anyhow::Result<()> {
     let args = Cli::parse();
 
+    env_logger::Builder::new()
+        .filter_level(args.verbose.log_level_filter())
+        .init();
+
+    log::trace!("Building execution context");
+    let work_dir = env::current_dir().context("could not resolve current working directory")?;
+    let context = data::Context {
+        work_dir: PathBuf::from(&work_dir), // TODO: supplyable via global flag `--work-tree`
+        repo_dir: work_dir.join(".rustig"), // TODO: supplyable via global flag `--git-dir`
+    };
+
     return match args.command {
-        Commands::Init {} => init(),
-        Commands::HashObject { path } => hash_object(path),
-        Commands::CatFile { object } => cat_file(object),
-        Commands::WriteTree {} => write_tree(),
+        Commands::Init => init(&context),
+        Commands::HashObject { path } => hash_object(&context, path),
+        Commands::CatFile { object } => cat_file(&context, object),
+        Commands::WriteTree => write_tree(&context),
     };
 }
 
-fn init() -> anyhow::Result<()> {
-    let git_dir = data::init()?;
-    println!("Initialized empty Rustig repository in {}", git_dir);
+fn init(context: &data::Context) -> anyhow::Result<()> {
+    println!("Initialized empty Rustig repository in {}", context.init()?);
     Ok(())
 }
 
-fn hash_object(path: PathBuf) -> anyhow::Result<()> {
-    let hash = data::hash_object(path, None)?;
-    println!("{}", hash);
+fn hash_object(context: &data::Context, path: PathBuf) -> anyhow::Result<()> {
+    context.ensure_init()?;
+    let data = fs::read_to_string(&path).context(format!("could not read '{}'", path.display()))?;
+    println!("{}", context.hash_object(data, ObjectType::Blob)?);
     Ok(())
 }
 
-fn cat_file(object: String) -> anyhow::Result<()> {
-    let content = data::cat_file(object, None)?;
-    println!("{}", content);
+fn cat_file(context: &data::Context, object: String) -> anyhow::Result<()> {
+    context.ensure_init()?;
+    println!("{}", context.get_object(object, None)?);
     Ok(())
 }
 
-fn write_tree() -> anyhow::Result<()> {
-    base::write_tree(None)?;
+fn write_tree(context: &data::Context) -> anyhow::Result<()> {
+    context.ensure_init()?;
+    println!("{}", context.write_tree(&context.work_dir)?);
     Ok(())
 }

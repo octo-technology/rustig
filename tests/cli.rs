@@ -34,6 +34,7 @@ SUBCOMMANDS:
         .current_dir(&cwd)
         .assert()
         .code(2)
+        .stdout(is_empty())
         .stderr(eq(help_msg));
 
     cwd.close()?;
@@ -49,7 +50,8 @@ fn subcommand_init_ok() -> Result<(), Box<dyn std::error::Error>> {
         .arg("init")
         .assert()
         .success()
-        .stdout(is_match("^Initialized empty Rustig repository in /.*/\\.rustig\n$").unwrap());
+        .stdout(is_match("^Initialized empty Rustig repository in /.*/\\.rustig\n$").unwrap())
+        .stderr(is_empty());
     cwd.child(".rustig").assert(exists());
     cwd.child(".rustig/objects").assert(exists());
 
@@ -75,7 +77,8 @@ fn subcommand_hash_object_ok() -> Result<(), Box<dyn std::error::Error>> {
         .arg(file.path())
         .assert()
         .success()
-        .stdout(is_match("^d727e363541ff1b8b282bde54a780d05e8007a8f\n$").unwrap());
+        .stdout(is_match("^d727e363541ff1b8b282bde54a780d05e8007a8f\n$").unwrap())
+        .stderr(is_empty());
     cwd.child(".rustig/objects/d727e363541ff1b8b282bde54a780d05e8007a8f")
         .assert(exists());
 
@@ -93,6 +96,7 @@ fn subcommand_hash_object_uninitialized_err() -> Result<(), Box<dyn std::error::
         .arg("nonexistent_file.txt")
         .assert()
         .code(eq(1))
+        .stdout(is_empty())
         .stderr(is_match("^fatal: not a rustig repository\n$").unwrap());
 
     cwd.close()?;
@@ -115,6 +119,7 @@ fn subcommand_hash_object_nonexistent_file_err() -> Result<(), Box<dyn std::erro
         .arg("nonexistent_file.txt")
         .assert()
         .code(eq(1))
+        .stdout(is_empty())
         .stderr(is_match("^fatal: could not read 'nonexistent_file.txt': No such file or directory \\(os error 2\\)\n$").unwrap());
 
     cwd.close()?;
@@ -146,7 +151,8 @@ fn subcommand_cat_file_ok() -> Result<(), Box<dyn std::error::Error>> {
         .arg("d727e363541ff1b8b282bde54a780d05e8007a8f")
         .assert()
         .success()
-        .stdout(is_match("^Some content.\n\n$").unwrap());
+        .stdout(is_match("^Some content.\n\n$").unwrap())
+        .stderr(is_empty());
 
     cwd.close()?;
     Ok(())
@@ -162,6 +168,7 @@ fn subcommand_cat_file_uninitialized_err() -> Result<(), Box<dyn std::error::Err
         .arg("nonexistent_object")
         .assert()
         .code(eq(1))
+        .stdout(is_empty())
         .stderr(is_match("^fatal: not a rustig repository\n$").unwrap());
 
     cwd.close()?;
@@ -184,6 +191,7 @@ fn subcommand_cat_file_nonexistent_object_err() -> Result<(), Box<dyn std::error
         .arg("nonexistent_object")
         .assert()
         .code(eq(1))
+        .stdout(is_empty())
         .stderr(is_match("^fatal: could not read object '/.*/nonexistent_object': No such file or directory \\(os error 2\\)\n$").unwrap());
 
     cwd.close()?;
@@ -215,7 +223,8 @@ fn subcommand_write_tree_ok() -> Result<(), Box<dyn std::error::Error>> {
         .arg("write-tree")
         .assert()
         .success()
-        .stdout(is_match("^cf4685a94a7b854014159f4dbb128f664ef3e716\n$").unwrap());
+        .stdout(is_match("^cf4685a94a7b854014159f4dbb128f664ef3e716\n$").unwrap())
+        .stderr(is_empty());
     cwd.child(".rustig/objects/616bde835331a5cd78401171a61a4fd54f372adb")
         .assert(exists());
     cwd.child(".rustig/objects/2276357f8ac1bc0b174c9ccbea7fcdbeaf2be70b")
@@ -268,8 +277,8 @@ fn subcommand_read_tree_ok() -> Result<(), Box<dyn std::error::Error>> {
         .arg("cf4685a94a7b854014159f4dbb128f664ef3e716")
         .assert()
         .success()
-        .stderr(is_empty())
-        .stdout(is_empty());
+        .stdout(is_empty())
+        .stderr(is_empty());
 
     f1.assert("Some content.\n");
     f2.assert("Some more content.\n");
@@ -290,7 +299,8 @@ fn simple_workflow() -> Result<(), Box<dyn std::error::Error>> {
         .arg("init")
         .assert()
         .success()
-        .stdout(is_match("^Initialized empty Rustig repository in /.*/\\.rustig\n$").unwrap());
+        .stdout(is_match("^Initialized empty Rustig repository in /.*/\\.rustig\n$").unwrap())
+        .stderr(is_empty());
     cwd.child(".rustig").assert(exists());
     cwd.child(".rustig/objects").assert(exists());
 
@@ -300,7 +310,8 @@ fn simple_workflow() -> Result<(), Box<dyn std::error::Error>> {
         .arg(file.path())
         .assert()
         .success()
-        .stdout(is_match("^d727e363541ff1b8b282bde54a780d05e8007a8f\n$").unwrap());
+        .stdout(is_match("^d727e363541ff1b8b282bde54a780d05e8007a8f\n$").unwrap())
+        .stderr(is_empty());
     cwd.child(".rustig/objects/d727e363541ff1b8b282bde54a780d05e8007a8f")
         .assert(exists());
 
@@ -310,7 +321,8 @@ fn simple_workflow() -> Result<(), Box<dyn std::error::Error>> {
         .arg("d727e363541ff1b8b282bde54a780d05e8007a8f")
         .assert()
         .success()
-        .stdout(is_match("^Some content.\n\n$").unwrap());
+        .stdout(is_match("^Some content.\n\n$").unwrap())
+        .stderr(is_empty());
 
     cwd.close()?;
     Ok(())

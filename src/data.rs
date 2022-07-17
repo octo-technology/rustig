@@ -84,8 +84,8 @@ impl Context {
             Some(e) if e != object_type => Err(anyhow!(
                 "could not parse object '{}': expected type '{}' but got '{}'",
                 object_path.display(),
-                object_type_str,
-                e.to_string()
+                e.to_string(),
+                object_type_str
             )),
             _ => Ok(object_data[1..].to_vec()),
         }

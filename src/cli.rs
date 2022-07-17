@@ -77,7 +77,7 @@ fn hash_object(context: &data::Context, path: PathBuf) -> anyhow::Result<()> {
 
 fn cat_file(context: &data::Context, object: String) -> anyhow::Result<()> {
     context.ensure_init()?;
-    println!("{}", context.get_object(object, None)?);
+    println!("{}", context.get_object(object, &[])?);
     Ok(())
 }
 

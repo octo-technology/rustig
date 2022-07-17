@@ -36,8 +36,8 @@ impl Context {
         Ok(self.repo_dir.display().to_string())
     }
 
-    pub fn hash_object(&self, data: Vec<u8>, type_: ObjectType) -> anyhow::Result<String> {
-        let object = [type_.to_string().as_bytes(), &[b'\0'], &data].concat();
+    pub fn hash_object(&self, data: Vec<u8>, typ: ObjectType) -> anyhow::Result<String> {
+        let object = [typ.to_string().as_bytes(), &[b'\0'], &data].concat();
 
         let mut hasher = Sha1::new();
         hasher.update(&object);

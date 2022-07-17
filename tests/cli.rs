@@ -1,6 +1,9 @@
 use assert_cmd::prelude::{CommandCargoExt, OutputAssertExt};
 use assert_fs::prelude::*;
-use predicates::prelude::predicate::{eq, path::exists, str::is_match};
+use predicates::{
+    prelude::predicate::{eq, path::exists, str::is_match},
+    str::is_empty,
+};
 use std::process::Command;
 
 #[test]
@@ -23,6 +26,7 @@ SUBCOMMANDS:
     hash-object    Compute object ID and create a blob from a file
     help           Print this message or the help of the given subcommand(s)
     init           Create an empty rustig repository
+    read-tree      Read tree information into the index
     write-tree     Create a tree object from the current index
 ";
 
@@ -224,6 +228,52 @@ fn subcommand_write_tree_ok() -> Result<(), Box<dyn std::error::Error>> {
         .assert(exists());
     cwd.child(".rustig/objects/d727e363541ff1b8b282bde54a780d05e8007a8f")
         .assert(exists());
+
+    cwd.close()?;
+    Ok(())
+}
+
+#[test]
+fn subcommand_read_tree_ok() -> Result<(), Box<dyn std::error::Error>> {
+    let cwd = assert_fs::TempDir::new()?;
+    let d1 = cwd.child("some_dir");
+    let d2 = d1.child("some_nested_dir");
+    let f1 = cwd.child("some_file.txt");
+    let f2 = d1.child("some_nested_file.txt");
+    let f3 = d2.child("another_nested_file.txt");
+    d1.create_dir_all()?;
+    d2.create_dir_all()?;
+    f1.write_str("Some content.\n")?;
+    f2.write_str("Some more content.\n")?;
+    f3.write_str("Yet more content.\n")?;
+
+    Command::cargo_bin("rustig")?
+        .current_dir(&cwd)
+        .arg("init")
+        .assert()
+        .success();
+
+    Command::cargo_bin("rustig")?
+        .current_dir(&cwd)
+        .arg("write-tree")
+        .assert()
+        .success();
+
+    std::fs::remove_dir_all(d1.path())?;
+    std::fs::remove_file(f1.path())?;
+
+    Command::cargo_bin("rustig")?
+        .current_dir(&cwd)
+        .arg("read-tree")
+        .arg("cf4685a94a7b854014159f4dbb128f664ef3e716")
+        .assert()
+        .success()
+        .stderr(is_empty())
+        .stdout(is_empty());
+
+    f1.assert("Some content.\n");
+    f2.assert("Some more content.\n");
+    f3.assert("Yet more content.\n");
 
     cwd.close()?;
     Ok(())

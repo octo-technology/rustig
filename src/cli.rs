@@ -39,6 +39,14 @@ enum Commands {
     /// Create a tree object from the current index
     #[clap(name = "write-tree")]
     WriteTree,
+
+    /// Read tree information into the index
+    #[clap(name = "read-tree", arg_required_else_help = true)]
+    ReadTree {
+        /// Object to read
+        #[clap(required = true)]
+        object: String,
+    },
 }
 
 pub fn parse() -> anyhow::Result<()> {
@@ -60,6 +68,7 @@ pub fn parse() -> anyhow::Result<()> {
         Commands::HashObject { path } => hash_object(&context, path),
         Commands::CatFile { object } => cat_file(&context, object),
         Commands::WriteTree => write_tree(&context),
+        Commands::ReadTree { object } => read_tree(&context, object),
     };
 }
 
@@ -86,4 +95,9 @@ fn write_tree(context: &data::Context) -> anyhow::Result<()> {
     context.ensure_init()?;
     println!("{}", context.write_tree(&context.work_dir)?);
     Ok(())
+}
+
+fn read_tree(context: &data::Context, object: String) -> anyhow::Result<()> {
+    context.ensure_init()?;
+    context.read_tree(object, &context.work_dir)
 }

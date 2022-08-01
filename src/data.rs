@@ -5,7 +5,7 @@ use std::string::ToString;
 use std::{fs, path::PathBuf};
 use strum_macros::{Display, EnumString};
 
-#[derive(Display, Debug, PartialEq, EnumString)]
+#[derive(Display, Debug, PartialEq, EnumString, Eq, PartialOrd, Ord)]
 pub enum ObjectType {
     #[strum(serialize = "blob")]
     Blob,
@@ -99,12 +99,13 @@ impl Context {
             }
         }
 
-        let mut data = entries
+        entries.sort();
+        let data = entries
             .into_iter()
             .map(|e| format!("{}\0{}\0{}", e.0, e.1, e.2.to_string_lossy()))
-            .collect::<Vec<String>>();
-        data.sort();
-        self.hash_object(data.join("\n"), ObjectType::Tree)
+            .collect::<Vec<String>>()
+            .join("\n");
+        self.hash_object(data, ObjectType::Tree)
     }
 
     fn is_ignored(&self, path: &PathBuf) -> bool {

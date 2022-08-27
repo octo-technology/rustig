@@ -113,7 +113,9 @@ impl Context {
     }
 
     fn is_ignored(&self, path: &PathBuf) -> bool {
-        path.starts_with(&self.repo_dir)
+        path.starts_with(&self.repo_dir) ||
+        path.starts_with(&self.work_dir.join("target")) ||
+        path.starts_with(&self.work_dir.join(".git"))
     }
 
     fn obj_dir(&self) -> PathBuf {

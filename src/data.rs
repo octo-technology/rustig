@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Context as Context_};
 use sha1::{Digest, Sha1};
+use std::io::Read;
 use std::str::FromStr;
 use std::string::ToString;
 use std::{fs, path::PathBuf};
@@ -92,8 +93,11 @@ impl Context {
                 let oid = self.write_tree(&f.path())?;
                 entries.push((ObjectType::Tree, oid, f.file_name()));
             } else {
-                let data = fs::read_to_string(f.path())
-                    .context(format!("could not read '{}'", f.path().display()))?;
+                let mut file = fs::File::open(f.path())?;
+                let mut buf = vec![];
+                file.read_to_end(&mut buf).context(format!("could not read '{}'", f.path().display()))?;
+                let data = String::from_utf8_lossy(&buf).as_ref().to_owned();
+
                 let oid = self.hash_object(data, ObjectType::Blob)?;
                 entries.push((ObjectType::Blob, oid, f.file_name()));
             }

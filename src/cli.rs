@@ -70,14 +70,18 @@ fn init(context: &data::Context) -> anyhow::Result<()> {
 
 fn hash_object(context: &data::Context, path: PathBuf) -> anyhow::Result<()> {
     context.ensure_init()?;
-    let data = fs::read_to_string(&path).context(format!("could not read '{}'", path.display()))?;
+    let data = fs::read(&path).context(format!("could not read '{}'", path.display()))?;
+
     println!("{}", context.hash_object(data, ObjectType::Blob)?);
     Ok(())
 }
 
 fn cat_file(context: &data::Context, object: String) -> anyhow::Result<()> {
     context.ensure_init()?;
-    println!("{}", context.get_object(object, None)?);
+    println!(
+        "{}",
+        String::from_utf8_lossy(&context.get_object(object, None)?)
+    );
     Ok(())
 }
 

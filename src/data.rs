@@ -115,4 +115,17 @@ impl Context {
     fn obj_dir(&self) -> PathBuf {
         self.repo_dir.join("objects")
     }
+
+    pub fn read_tree(&self, object: String) {
+      let object = self.get_object(object,Some(ObjectType::Tree));
+      let shitty_object = object.unwrap().to_owned();
+      let split = shitty_object.split("\0");
+      let vec: Vec<&str> = split.collect();
+      let _t = vec[0];
+      let _content = vec[1];
+      let _filename = vec[2];
+      if _t == "blob" {
+        
+      }
+    }
 }

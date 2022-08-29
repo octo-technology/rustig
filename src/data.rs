@@ -1,6 +1,5 @@
 use anyhow::{anyhow, Context as Context_};
 use sha1::{Digest, Sha1};
-use std::io::Read;
 use std::str::FromStr;
 use std::string::ToString;
 use std::{fs, path::PathBuf};
@@ -37,8 +36,8 @@ impl Context {
         Ok(self.repo_dir.display().to_string())
     }
 
-    pub fn hash_object(&self, data: String, type_: ObjectType) -> anyhow::Result<String> {
-        let object = [type_.to_string(), data].join("\0");
+    pub fn hash_object(&self, data: Vec<u8>, type_: ObjectType) -> anyhow::Result<String> {
+        let object = [type_.to_string().as_bytes(), &[b'\0'], &data].concat();
 
         let mut hasher = Sha1::new();
         hasher.update(&object);
@@ -54,14 +53,25 @@ impl Context {
         &self,
         object: String,
         expected: Option<ObjectType>,
-    ) -> anyhow::Result<String> {
+    ) -> anyhow::Result<Vec<u8>> {
         let object_path = self.obj_dir().join(object);
-        let object_content = fs::read_to_string(&object_path)
+        let object_content = fs::read(&object_path)
             .context(format!("could not read object '{}'", object_path.display()))?;
-        let (object_type_str, object_data) = object_content.split_once('\0').context(format!(
-            "could not parse object '{}': invalid format",
+
+        let position = object_content
+            .iter()
+            .position(|&e| e == b'\0')
+            .context(format!(
+                "could not parse object '{}': invalid format",
+                object_path.display()
+            ))?;
+        let (object_type_raw, object_data) = object_content.split_at(position);
+
+        let object_type_str = std::str::from_utf8(object_type_raw).context(format!(
+            "could not parse object '{}': invalid object type",
             object_path.display()
         ))?;
+
         let object_type = ObjectType::from_str(object_type_str).map_err(|_| {
             anyhow!(
                 "could not parse object '{}': unknown type '{}'",
@@ -77,7 +87,7 @@ impl Context {
                 object_type_str,
                 e.to_string()
             )),
-            _ => Ok(object_data.to_string()),
+            _ => Ok(object_data[1..].to_vec()),
         }
     }
 
@@ -93,10 +103,8 @@ impl Context {
                 let oid = self.write_tree(&f.path())?;
                 entries.push((ObjectType::Tree, oid, f.file_name()));
             } else {
-                let mut file = fs::File::open(f.path())?;
-                let mut buf = vec![];
-                file.read_to_end(&mut buf).context(format!("could not read '{}'", f.path().display()))?;
-                let data = String::from_utf8_lossy(&buf).as_ref().to_owned();
+                let data = fs::read(f.path())
+                    .context(format!("could not read file '{}'", f.path().display()))?;
 
                 let oid = self.hash_object(data, ObjectType::Blob)?;
                 entries.push((ObjectType::Blob, oid, f.file_name()));
@@ -108,14 +116,15 @@ impl Context {
             .into_iter()
             .map(|e| format!("{}\0{}\0{}", e.0, e.1, e.2.to_string_lossy()))
             .collect::<Vec<String>>()
-            .join("\n");
+            .join("\n")
+            .into_bytes();
         self.hash_object(data, ObjectType::Tree)
     }
 
     fn is_ignored(&self, path: &PathBuf) -> bool {
-        path.starts_with(&self.repo_dir) ||
-        path.starts_with(&self.work_dir.join("target")) ||
-        path.starts_with(&self.work_dir.join(".git"))
+        path.starts_with(&self.repo_dir)
+            || path.starts_with(&self.work_dir.join("target"))
+            || path.starts_with(&self.work_dir.join(".git"))
     }
 
     fn obj_dir(&self) -> PathBuf {

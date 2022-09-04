@@ -5,6 +5,16 @@ use std::string::ToString;
 use std::{fs, path::PathBuf};
 use strum_macros::{Display, EnumString};
 
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct OID(pub String);
+
+impl std::fmt::Display for OID {
+    #[inline]
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
 #[derive(Display, Debug, PartialEq, EnumString, Eq, PartialOrd, Ord)]
 pub enum ObjectType {
     #[strum(serialize = "blob")]
@@ -36,7 +46,7 @@ impl Context {
         Ok(self.repo_dir.display().to_string())
     }
 
-    pub fn hash_object(&self, data: Vec<u8>, typ: ObjectType) -> anyhow::Result<String> {
+    pub fn hash_object(&self, data: Vec<u8>, typ: ObjectType) -> anyhow::Result<OID> {
         let object = [typ.to_string().as_bytes(), &[b'\0'], &data].concat();
 
         let mut hasher = Sha1::new();
@@ -46,11 +56,11 @@ impl Context {
         let path = self.obj_dir().join(&hash);
         fs::write(&path, object).context(format!("could not write object '{}'", path.display()))?;
 
-        Ok(hash)
+        Ok(OID(hash))
     }
 
-    pub fn get_object(&self, object: String, expected: &[ObjectType]) -> anyhow::Result<Vec<u8>> {
-        let object_path = self.obj_dir().join(object);
+    pub fn get_object(&self, object: OID, expected: &[ObjectType]) -> anyhow::Result<Vec<u8>> {
+        let object_path = self.obj_dir().join(object.0);
         let object_content = fs::read(&object_path)
             .context(format!("could not read object '{}'", object_path.display()))?;
 
@@ -92,7 +102,7 @@ impl Context {
         }
     }
 
-    pub fn write_tree(&self, path: &PathBuf) -> anyhow::Result<String> {
+    pub fn write_tree(&self, path: &PathBuf) -> anyhow::Result<OID> {
         let mut entries = vec![];
         let files = fs::read_dir(path)
             .context(format!("could not read '{}'", path.display()))?
@@ -122,8 +132,8 @@ impl Context {
         self.hash_object(data, ObjectType::Tree)
     }
 
-    pub fn read_tree(&self, object: String, path: &PathBuf) -> anyhow::Result<()> {
-        let object_path = self.obj_dir().join(&object);
+    pub fn read_tree(&self, object: OID, path: &PathBuf) -> anyhow::Result<()> {
+        let object_path = self.obj_dir().join(&object.0);
         let data_raw = self.get_object(object, &[ObjectType::Tree])?;
         let data = String::from_utf8_lossy(&data_raw);
 
@@ -136,10 +146,13 @@ impl Context {
                 "could not parse object '{}': invalid format",
                 object_path.display()
             ))?;
-            let (oid, name) = rest.split_once('\0').context(format!(
-                "could not parse object '{}': invalid format",
-                object_path.display()
-            ))?;
+            let (oid, name) = {
+                let (o, n) = rest.split_once('\0').context(format!(
+                    "could not parse object '{}': invalid format",
+                    object_path.display()
+                ))?;
+                (OID(o.to_string()), n)
+            };
             let object_type = ObjectType::from_str(type_str).map_err(|_| {
                 anyhow!(
                     "could not parse object '{}': unknown type '{}'",
@@ -151,7 +164,7 @@ impl Context {
             let new_path = path.join(name);
             match object_type {
                 ObjectType::Blob => {
-                    let new_data = self.get_object(oid.to_string(), &[ObjectType::Blob])?;
+                    let new_data = self.get_object(oid, &[ObjectType::Blob])?;
                     fs::write(&new_path, new_data)
                         .context(format!("could not write file '{}'", new_path.display()))?;
                 }
@@ -160,7 +173,7 @@ impl Context {
                         "could not create directory '{}'",
                         new_path.display()
                     ))?;
-                    self.read_tree(oid.to_string(), &new_path)?;
+                    self.read_tree(oid, &new_path)?;
                 }
             };
         }

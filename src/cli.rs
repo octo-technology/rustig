@@ -1,4 +1,4 @@
-use crate::data::{self, ObjectType};
+use crate::data::{self, ObjectType, OID};
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use clap_verbosity_flag::Verbosity;
@@ -86,7 +86,7 @@ fn hash_object(context: &data::Context, path: PathBuf) -> anyhow::Result<()> {
 
 fn cat_file(context: &data::Context, object: String) -> anyhow::Result<()> {
     context.ensure_init()?;
-    let data = context.get_object(object, &[ObjectType::Blob])?;
+    let data = context.get_object(OID(object), &[ObjectType::Blob])?;
     println!("{}", String::from_utf8_lossy(&data));
     Ok(())
 }
@@ -99,5 +99,5 @@ fn write_tree(context: &data::Context) -> anyhow::Result<()> {
 
 fn read_tree(context: &data::Context, object: String) -> anyhow::Result<()> {
     context.ensure_init()?;
-    context.read_tree(object, &context.work_dir)
+    context.read_tree(OID(object), &context.work_dir)
 }

@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Context as Context_};
+use bstr::{ByteSlice};
 use sha1::{Digest, Sha1};
 use std::str::FromStr;
 use std::string::ToString;
@@ -119,6 +120,20 @@ impl Context {
             .join("\n")
             .into_bytes();
         self.hash_object(data, ObjectType::Tree)
+    }
+
+    fn iter_tree_entries(&self, object: String) -> anyhow::Result<Vec<Vec<Vec<u8>>>> {
+        let mut tree_entries: Vec<Vec<Vec<u8>>> = Vec::new();
+
+        let raw_tree = self.get_object(object, Some(ObjectType::Tree))?;
+        let tree = raw_tree[5..].to_vec(); // cé pa bo
+        let tree_lines: Vec<Vec<u8>> = tree.split_str("\n").map(|x| x.to_vec()).collect();
+
+        for raw_line in tree_lines {
+            let split_line = raw_line.split_str("\0").map(|x| x.to_vec()).collect();
+            tree_entries.push(split_line);
+        }
+        Ok(tree_entries)
     }
 
     fn is_ignored(&self, path: &PathBuf) -> bool {

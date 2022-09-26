@@ -47,6 +47,14 @@ enum Commands {
         #[clap(required = true)]
         object: String,
     },
+
+    /// Record changes to the repository
+    #[clap(name = "commit", arg_required_else_help = true)]
+    Commit {
+        /// Use the given <msg> as the commit message
+        #[clap(short, long, value_name = "msg")]
+        message: String,
+    },
 }
 
 pub fn parse() -> anyhow::Result<()> {
@@ -69,6 +77,7 @@ pub fn parse() -> anyhow::Result<()> {
         Commands::CatFile { object } => cat_file(&context, object),
         Commands::WriteTree => write_tree(&context),
         Commands::ReadTree { object } => read_tree(&context, object),
+        Commands::Commit { message } => commit(&context, message),
     };
 }
 
@@ -100,4 +109,9 @@ fn write_tree(context: &data::Context) -> anyhow::Result<()> {
 fn read_tree(context: &data::Context, object: String) -> anyhow::Result<()> {
     context.ensure_init()?;
     context.read_tree(OID(object), &context.work_dir)
+}
+fn commit(context: &data::Context, message: String) -> anyhow::Result<()> {
+    context.ensure_init()?;
+    println!("{}", context.commit(message)?);
+    Ok(())
 }

@@ -1,4 +1,4 @@
-use crate::data::{self, ObjectType};
+use crate::data::{self, ObjectType, OID};
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use clap_verbosity_flag::Verbosity;
@@ -39,6 +39,14 @@ enum Commands {
     /// Create a tree object from the current index
     #[clap(name = "write-tree")]
     WriteTree,
+
+    /// Read tree information into the index
+    #[clap(name = "read-tree", arg_required_else_help = true)]
+    ReadTree {
+        /// Object to read
+        #[clap(required = true)]
+        object: String,
+    },
 }
 
 pub fn parse() -> anyhow::Result<()> {
@@ -60,6 +68,7 @@ pub fn parse() -> anyhow::Result<()> {
         Commands::HashObject { path } => hash_object(&context, path),
         Commands::CatFile { object } => cat_file(&context, object),
         Commands::WriteTree => write_tree(&context),
+        Commands::ReadTree { object } => read_tree(&context, object),
     };
 }
 
@@ -71,17 +80,14 @@ fn init(context: &data::Context) -> anyhow::Result<()> {
 fn hash_object(context: &data::Context, path: PathBuf) -> anyhow::Result<()> {
     context.ensure_init()?;
     let data = fs::read(&path).context(format!("could not read '{}'", path.display()))?;
-
     println!("{}", context.hash_object(data, ObjectType::Blob)?);
     Ok(())
 }
 
 fn cat_file(context: &data::Context, object: String) -> anyhow::Result<()> {
     context.ensure_init()?;
-    println!(
-        "{}",
-        String::from_utf8_lossy(&context.get_object(object, None)?)
-    );
+    let data = context.get_object(OID(object), &[ObjectType::Blob])?;
+    println!("{}", String::from_utf8_lossy(&data));
     Ok(())
 }
 
@@ -89,4 +95,9 @@ fn write_tree(context: &data::Context) -> anyhow::Result<()> {
     context.ensure_init()?;
     println!("{}", context.write_tree(&context.work_dir)?);
     Ok(())
+}
+
+fn read_tree(context: &data::Context, object: String) -> anyhow::Result<()> {
+    context.ensure_init()?;
+    context.read_tree(OID(object), &context.work_dir)
 }

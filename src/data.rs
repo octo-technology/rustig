@@ -22,6 +22,9 @@ pub enum ObjectType {
 
     #[strum(serialize = "tree")]
     Tree,
+
+    #[strum(serialize = "commit")]
+    Commit,
 }
 
 pub struct Context {
@@ -175,10 +178,30 @@ impl Context {
                     ))?;
                     self.read_tree(oid, &new_path)?;
                 }
+                _ => {
+                    return Err(anyhow::Error::msg(format!(
+                        "unexpected object type '{}' found in '{}' tree",
+                        object_type,
+                        path.display()
+                    )))
+                }
             };
         }
 
         Ok(())
+    }
+
+    pub fn commit(&self, message: String) -> anyhow::Result<OID> {
+        self.hash_object(
+            format!(
+                "{}\0{}\n\n{}\n",
+                ObjectType::Tree,
+                self.write_tree(&self.work_dir)?,
+                message
+            )
+            .into_bytes(),
+            ObjectType::Commit,
+        )
     }
 
     fn is_ignored(&self, path: &PathBuf) -> bool {

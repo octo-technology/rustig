@@ -24,7 +24,7 @@ enum Commands {
     #[clap(name = "hash-object", arg_required_else_help = true)]
     HashObject {
         /// File to hash
-        #[clap(required = true, parse(from_os_str))]
+        #[clap(required = true)]
         path: PathBuf,
     },
 
@@ -100,4 +100,10 @@ fn write_tree(context: &data::Context) -> anyhow::Result<()> {
 fn read_tree(context: &data::Context, object: String) -> anyhow::Result<()> {
     context.ensure_init()?;
     context.read_tree(OID(object), &context.work_dir)
+}
+
+#[test]
+fn verify_cli() {
+    use clap::CommandFactory;
+    Cli::command().debug_assert()
 }

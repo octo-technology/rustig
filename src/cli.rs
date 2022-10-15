@@ -5,46 +5,46 @@ use clap_verbosity_flag::Verbosity;
 use std::{env, fs, path::PathBuf};
 
 #[derive(Parser, Debug)]
-#[clap(about = "A bad git clone, in Rust", long_about = None)]
+#[command(about = "A bad git clone, in Rust", long_about = None)]
 struct Cli {
     /// The command to run
-    #[clap(subcommand)]
+    #[command(subcommand)]
     command: Commands,
 
-    #[clap(flatten)]
+    #[command(flatten)]
     verbose: Verbosity,
 }
 
-#[derive(Debug, Subcommand)]
+#[derive(Subcommand, Debug)]
 enum Commands {
     /// Create an empty rustig repository
     Init,
 
     /// Compute object ID and create a blob from a file
-    #[clap(name = "hash-object", arg_required_else_help = true)]
+    #[command(name = "hash-object", arg_required_else_help = true)]
     HashObject {
         /// File to hash
-        #[clap(required = true)]
+        #[arg(required = true)]
         path: PathBuf,
     },
 
     /// Provide content for repository objects
-    #[clap(name = "cat-file", arg_required_else_help = true)]
+    #[command(name = "cat-file", arg_required_else_help = true)]
     CatFile {
         /// Object to show
-        #[clap(required = true)]
+        #[arg(required = true)]
         object: String,
     },
 
     /// Create a tree object from the current index
-    #[clap(name = "write-tree")]
+    #[command(name = "write-tree")]
     WriteTree,
 
     /// Read tree information into the index
-    #[clap(name = "read-tree", arg_required_else_help = true)]
+    #[command(name = "read-tree", arg_required_else_help = true)]
     ReadTree {
         /// Object to read
-        #[clap(required = true)]
+        #[arg(required = true)]
         object: String,
     },
 }

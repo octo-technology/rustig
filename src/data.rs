@@ -1,5 +1,8 @@
 use anyhow::{anyhow, Context as Context_};
 use async_recursion::async_recursion;
+use serde::{Deserialize, Serialize};
+use serde_with::serde_as;
+use serde_with::base64::Base64;
 use sha1::{Digest, Sha1};
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{ConnectOptions, SqliteConnection, Type};
@@ -19,7 +22,9 @@ impl std::fmt::Display for OID {
     }
 }
 
-#[derive(Display, Debug, PartialEq, EnumString, Eq, PartialOrd, Ord, Type)]
+#[derive(
+    Display, Debug, PartialEq, EnumString, Eq, PartialOrd, Ord, Type, Serialize, Deserialize,
+)]
 #[sqlx(rename_all = "lowercase")]
 pub enum ObjectType {
     #[strum(serialize = "blob")]
@@ -32,6 +37,15 @@ pub enum ObjectType {
 pub struct Context {
     ignored: Vec<PathBuf>,
     conn: SqliteConnection,
+}
+
+#[serde_as]
+#[derive(Serialize, Deserialize)]
+struct ObjectData {
+    typ: String,
+
+    #[serde_as(as = "Base64")]
+    data: Vec<u8>,
 }
 
 impl Context {
@@ -75,11 +89,15 @@ impl Context {
         hasher.update(&data);
         let hash = OID(format!("{:x}", hasher.finalize()));
 
+        let foo = sqlx::types::Json(ObjectData {
+            typ: String::from("coucou"),
+            data,
+        });
         sqlx::query!(
             "INSERT OR IGNORE INTO objects(id, type, data) VALUES (?1, ?2, ?3)",
             hash,
             typ,
-            data
+            foo,
         )
         .execute(&mut self.conn)
         .await
@@ -121,7 +139,9 @@ impl Context {
                 object_type
             ))
         } else {
-            Ok(record.data)
+            let data: ObjectData =
+                serde_json::from_str(&record.data).context("invalid format in database")?;
+            Ok(data.data)
         }
     }
 

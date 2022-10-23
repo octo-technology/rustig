@@ -62,7 +62,9 @@ impl Context {
 
         Ok(Self {
             conn,
-            ignored: vec![repo_file],
+            ignored: vec![repo_file
+                .canonicalize()
+                .context("not a valid repository path")?],
         })
     }
 
@@ -125,8 +127,10 @@ impl Context {
 
     #[async_recursion]
     pub async fn write_tree(&mut self, path: &PathBuf) -> anyhow::Result<OID> {
+        let path = path.canonicalize().context("not a valid path")?;
+
         let mut entries = vec![];
-        let files = fs::read_dir(path)
+        let files = fs::read_dir(&path)
             .context(format!("could not read '{}'", path.display()))?
             .filter_map(|e| e.ok())
             .filter(|f| !self.is_ignored(&f.path()))
@@ -203,8 +207,8 @@ impl Context {
         Ok(())
     }
 
+    // Paths need to be canonical: ./foo does not starts with foo.
     fn is_ignored(&self, path: &PathBuf) -> bool {
-        // FIXME: ./foo does not starts with foo
         self.ignored.iter().any(|f| path.starts_with(f))
     }
 }

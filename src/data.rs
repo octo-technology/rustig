@@ -76,7 +76,7 @@ impl Context {
         let hash = OID(format!("{:x}", hasher.finalize()));
 
         sqlx::query!(
-            "INSERT INTO objects(id, type, data) VALUES (?1, ?2, ?3)",
+            "INSERT OR IGNORE INTO objects(id, type, data) VALUES (?1, ?2, ?3)",
             hash,
             typ,
             data

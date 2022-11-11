@@ -10,24 +10,22 @@ use std::process::Command;
 fn missing_subcommand_err() -> Result<(), Box<dyn std::error::Error>> {
     let cwd = assert_fs::TempDir::new()?;
     let help_msg = "\
-rustig \
-\nA bad git clone, in Rust
+A bad git clone, in Rust
 
-USAGE:
-    rustig [OPTIONS] <SUBCOMMAND>
+Usage: rustig [OPTIONS] <COMMAND>
 
-OPTIONS:
-    -h, --help       Print help information
-    -q, --quiet      Less output per occurrence
-    -v, --verbose    More output per occurrence
+Commands:
+  init         Create an empty rustig repository
+  hash-object  Compute object ID and create a blob from a file
+  cat-file     Provide content for repository objects
+  write-tree   Create a tree object from the current index
+  read-tree    Read tree information into the index
+  help         Print this message or the help of the given subcommand(s)
 
-SUBCOMMANDS:
-    cat-file       Provide content for repository objects
-    hash-object    Compute object ID and create a blob from a file
-    help           Print this message or the help of the given subcommand(s)
-    init           Create an empty rustig repository
-    read-tree      Read tree information into the index
-    write-tree     Create a tree object from the current index
+Options:
+  -v, --verbose...  More output per occurrence
+  -q, --quiet...    Less output per occurrence
+  -h, --help        Print help information
 ";
 
     Command::cargo_bin("rustig")?

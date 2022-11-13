@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package hook;
+
+message Req {
+  string foo = 1;
+}
+
+message Resp {
+  string bar = 1;
+}

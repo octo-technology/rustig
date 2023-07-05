@@ -15,15 +15,17 @@ Commands:
   help         Print this message or the help of the given subcommand(s)
 
 Options:
-  -v, --verbose...  More output per occurrence
-  -q, --quiet...    Less output per occurrence
-  -h, --help        Print help information
+  -v, --verbose...             More output per occurrence
+  -q, --quiet...               Less output per occurrence
+      --work-tree <WORK_TREE>  Set the path to the working tree [default: .]
+      --repo-file <REPO_FILE>  Set the path to the repository [default: .rustig.db]
+  -h, --help                   Print help information
 
 ```
 
 Initialize a new `rustig` repository:
 ```
 $ rustig init
-Initialized empty Rustig repository in [CWD]/.rustig
+Initialized empty Rustig repository in .rustig.db
 
 ```

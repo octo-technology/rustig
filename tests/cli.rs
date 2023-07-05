@@ -23,9 +23,11 @@ Commands:
   help         Print this message or the help of the given subcommand(s)
 
 Options:
-  -v, --verbose...  More output per occurrence
-  -q, --quiet...    Less output per occurrence
-  -h, --help        Print help information
+  -v, --verbose...             More output per occurrence
+  -q, --quiet...               Less output per occurrence
+      --work-tree <WORK_TREE>  Set the path to the working tree [default: .]
+      --repo-file <REPO_FILE>  Set the path to the repository [default: .rustig.db]
+  -h, --help                   Print help information
 ";
 
     Command::cargo_bin("rustig")?
@@ -48,10 +50,9 @@ fn subcommand_init_ok() -> Result<(), Box<dyn std::error::Error>> {
         .arg("init")
         .assert()
         .success()
-        .stdout(is_match("^Initialized empty Rustig repository in /.*/\\.rustig\n$").unwrap())
+        .stdout(is_match("^Initialized empty Rustig repository in .rustig.db\n$").unwrap())
         .stderr(is_empty());
-    cwd.child(".rustig").assert(exists());
-    cwd.child(".rustig/objects").assert(exists());
+    cwd.child(".rustig.db").assert(exists());
 
     cwd.close()?;
     Ok(())

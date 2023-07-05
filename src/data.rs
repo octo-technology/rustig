@@ -1,11 +1,18 @@
 use anyhow::{anyhow, Context as Context_};
+use async_recursion::async_recursion;
+use serde::{Deserialize, Serialize};
+use serde_with::serde_as;
+use serde_with::base64::Base64;
 use sha1::{Digest, Sha1};
+use sqlx::sqlite::SqliteConnectOptions;
+use sqlx::{ConnectOptions, SqliteConnection, Type};
 use std::str::FromStr;
 use std::string::ToString;
 use std::{fs, path::PathBuf};
 use strum_macros::{Display, EnumString};
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Type)]
+#[sqlx(transparent)]
 pub struct OID(pub String);
 
 impl std::fmt::Display for OID {
@@ -15,7 +22,10 @@ impl std::fmt::Display for OID {
     }
 }
 
-#[derive(Display, Debug, PartialEq, EnumString, Eq, PartialOrd, Ord)]
+#[derive(
+    Display, Debug, PartialEq, EnumString, Eq, PartialOrd, Ord, Type, Serialize, Deserialize,
+)]
+#[sqlx(rename_all = "lowercase")]
 pub enum ObjectType {
     #[strum(serialize = "blob")]
     Blob,
@@ -25,99 +35,135 @@ pub enum ObjectType {
 }
 
 pub struct Context {
-    pub work_dir: PathBuf,
-    pub repo_dir: PathBuf,
+    ignored: Vec<PathBuf>,
+    conn: SqliteConnection,
+}
+
+#[serde_as]
+#[derive(Serialize, Deserialize)]
+struct ObjectData {
+    typ: String,
+
+    #[serde_as(as = "Base64")]
+    data: Vec<u8>,
 }
 
 impl Context {
-    pub fn ensure_init(&self) -> anyhow::Result<()> {
-        self.obj_dir()
-            .as_path()
-            .is_dir()
-            .then(|| ())
-            .ok_or(anyhow::Error::msg("not a rustig repository"))
+    // FIXME: error messages don't maeke sense.
+    pub async fn new(repo_file: PathBuf, init: bool) -> anyhow::Result<Self> {
+        log::trace!("Building execution context");
+        let mut conn = SqliteConnectOptions::from_str(&repo_file.to_string_lossy())
+            .context("not a valid repository path")?
+            .journal_mode(sqlx::sqlite::SqliteJournalMode::Delete)
+            .create_if_missing(init)
+            .connect()
+            .await
+            .map_err(|e| {
+                log::debug!("{e}");
+                if init {
+                    anyhow!("cannot initialize rustig repository")
+                } else {
+                    anyhow!("not a rustig repository")
+                }
+            })?;
+
+        if init {
+            sqlx::migrate!()
+                .run_direct(&mut conn)
+                .await
+                .context("could not run migrations")?;
+        }
+
+        Ok(Self {
+            conn,
+            ignored: vec![repo_file
+                .canonicalize()
+                .context("not a valid repository path")?],
+        })
     }
 
-    pub fn init(&self) -> anyhow::Result<String> {
-        fs::create_dir_all(self.obj_dir().as_path()).context(format!(
-            "could not create directory '{}'",
-            self.obj_dir().display()
-        ))?;
-        Ok(self.repo_dir.display().to_string())
-    }
-
-    pub fn hash_object(&self, data: Vec<u8>, typ: ObjectType) -> anyhow::Result<OID> {
-        let object = [typ.to_string().as_bytes(), &[b'\0'], &data].concat();
-
+    pub async fn hash_object(&mut self, data: Vec<u8>, typ: ObjectType) -> anyhow::Result<OID> {
         let mut hasher = Sha1::new();
-        hasher.update(&object);
-        let hash = format!("{:x}", hasher.finalize());
+        hasher.update(typ.to_string().as_bytes());
+        hasher.update("\0"); // TODO: this is here to not break tests, but we should remove it
+        hasher.update(&data);
+        let hash = OID(format!("{:x}", hasher.finalize()));
 
-        let path = self.obj_dir().join(&hash);
-        fs::write(&path, object).context(format!("could not write object '{}'", path.display()))?;
+        let foo = sqlx::types::Json(ObjectData {
+            typ: String::from("coucou"),
+            data,
+        });
+        sqlx::query!(
+            "INSERT OR IGNORE INTO objects(id, type, data) VALUES (?1, ?2, ?3)",
+            hash,
+            typ,
+            foo,
+        )
+        .execute(&mut self.conn)
+        .await
+        .context(format!("could not write object '{}'", hash))?;
 
-        Ok(OID(hash))
+        Ok(hash)
     }
 
-    pub fn get_object(&self, object: OID, expected: &[ObjectType]) -> anyhow::Result<Vec<u8>> {
-        let object_path = self.obj_dir().join(object.0);
-        let object_content = fs::read(&object_path)
-            .context(format!("could not read object '{}'", object_path.display()))?;
+    pub async fn get_object(
+        &mut self,
+        object: &OID,
+        expected: &[ObjectType],
+    ) -> anyhow::Result<Vec<u8>> {
+        let record = sqlx::query!(
+            "SELECT type AS typ, data FROM objects WHERE id = ?1",
+            object
+        )
+        .fetch_one(&mut self.conn)
+        .await
+        .context(format!("could not read object '{}'", object))?;
 
-        let position = object_content
-            .iter()
-            .position(|&e| e == b'\0')
-            .context(format!(
-                "could not parse object '{}': invalid format",
-                object_path.display()
-            ))?;
-        let (object_type_raw, object_data) = object_content.split_at(position);
-
-        let object_type_str = std::str::from_utf8(object_type_raw).context(format!(
-            "could not parse object '{}': invalid object type",
-            object_path.display()
-        ))?;
-
-        let object_type = ObjectType::from_str(object_type_str).map_err(|_| {
+        let object_type = ObjectType::from_str(&record.typ).map_err(|_| {
             anyhow!(
                 "could not parse object '{}': unknown type '{}'",
-                object_path.display(),
-                object_type_str
+                object,
+                record.typ
             )
         })?;
 
         if !expected.is_empty() && !expected.contains(&object_type) {
             Err(anyhow!(
-                "could not parse object '{}': expected type to be one of [{}] but got '{}'",
-                object_path.display(),
+                "invalid object type for '{}': want one of [{}] but got '{}'",
+                object,
                 expected
                     .into_iter()
                     .map(|e| format!("'{}'", e))
                     .collect::<Vec<String>>()
                     .join(", "),
-                object_type_str
+                object_type
             ))
         } else {
-            Ok(object_data[1..].to_vec())
+            let data: ObjectData =
+                serde_json::from_str(&record.data).context("invalid format in database")?;
+            Ok(data.data)
         }
     }
 
-    pub fn write_tree(&self, path: &PathBuf) -> anyhow::Result<OID> {
+    #[async_recursion]
+    pub async fn write_tree(&mut self, path: &PathBuf) -> anyhow::Result<OID> {
+        let path = path.canonicalize().context("not a valid path")?;
+
         let mut entries = vec![];
-        let files = fs::read_dir(path)
+        let files = fs::read_dir(&path)
             .context(format!("could not read '{}'", path.display()))?
             .filter_map(|e| e.ok())
-            .filter(|f| !self.is_ignored(&f.path()));
+            .filter(|f| !self.is_ignored(&f.path()))
+            .collect::<Vec<_>>();
 
         for f in files {
             if f.file_type().map_or(false, |t| t.is_dir()) {
-                let oid = self.write_tree(&f.path())?;
+                let oid = self.write_tree(&f.path()).await?;
                 entries.push((ObjectType::Tree, oid, f.file_name()));
             } else {
                 let data = fs::read(f.path())
                     .context(format!("could not read file '{}'", f.path().display()))?;
-
-                let oid = self.hash_object(data, ObjectType::Blob)?;
+                let oid = self.hash_object(data, ObjectType::Blob).await?;
                 entries.push((ObjectType::Blob, oid, f.file_name()));
             }
         }
@@ -129,13 +175,13 @@ impl Context {
             .collect::<Vec<String>>()
             .join("\n")
             .into_bytes();
-        self.hash_object(data, ObjectType::Tree)
+        self.hash_object(data, ObjectType::Tree).await
     }
 
-    pub fn read_tree(&self, object: OID, path: &PathBuf) -> anyhow::Result<()> {
-        let object_path = self.obj_dir().join(&object.0);
-        let data_raw = self.get_object(object, &[ObjectType::Tree])?;
-        let data = String::from_utf8_lossy(&data_raw);
+    #[async_recursion]
+    pub async fn read_tree(&mut self, object: OID, path: &PathBuf) -> anyhow::Result<()> {
+        let data_raw = &self.get_object(&object, &[ObjectType::Tree]).await?;
+        let data = String::from_utf8_lossy(data_raw);
 
         if data == "" {
             // tree objects containing no entries (i.e. empty dirs)
@@ -144,19 +190,19 @@ impl Context {
         for e in data.split("\n") {
             let (type_str, rest) = e.split_once('\0').context(format!(
                 "could not parse object '{}': invalid format",
-                object_path.display()
+                object
             ))?;
             let (oid, name) = {
                 let (o, n) = rest.split_once('\0').context(format!(
                     "could not parse object '{}': invalid format",
-                    object_path.display()
+                    object
                 ))?;
                 (OID(o.to_string()), n)
             };
             let object_type = ObjectType::from_str(type_str).map_err(|_| {
                 anyhow!(
                     "could not parse object '{}': unknown type '{}'",
-                    object_path.display(),
+                    object,
                     type_str
                 )
             })?;
@@ -164,7 +210,7 @@ impl Context {
             let new_path = path.join(name);
             match object_type {
                 ObjectType::Blob => {
-                    let new_data = self.get_object(oid, &[ObjectType::Blob])?;
+                    let new_data = self.get_object(&oid, &[ObjectType::Blob]).await?;
                     fs::write(&new_path, new_data)
                         .context(format!("could not write file '{}'", new_path.display()))?;
                 }
@@ -173,7 +219,7 @@ impl Context {
                         "could not create directory '{}'",
                         new_path.display()
                     ))?;
-                    self.read_tree(oid, &new_path)?;
+                    self.read_tree(oid, &new_path).await?;
                 }
             };
         }
@@ -181,13 +227,8 @@ impl Context {
         Ok(())
     }
 
+    // Paths need to be canonical: ./foo does not starts with foo.
     fn is_ignored(&self, path: &PathBuf) -> bool {
-        path.starts_with(&self.repo_dir)
-            || path.starts_with(&self.work_dir.join("target"))
-            || path.starts_with(&self.work_dir.join(".git"))
-    }
-
-    fn obj_dir(&self) -> PathBuf {
-        self.repo_dir.join("objects")
+        self.ignored.iter().any(|f| path.starts_with(f))
     }
 }

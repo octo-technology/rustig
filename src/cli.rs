@@ -1,8 +1,8 @@
 use crate::data::{self, ObjectType, OID};
 use anyhow::Context;
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 use clap_verbosity_flag::Verbosity;
-use std::{env, fs, path::PathBuf};
+use std::{fs, path::PathBuf};
 
 #[derive(Parser, Debug)]
 #[command(about = "A bad git clone, in Rust", long_about = None)]
@@ -13,6 +13,20 @@ struct Cli {
 
     #[command(flatten)]
     verbose: Verbosity,
+
+    #[command(flatten)]
+    flags: Flags,
+}
+
+#[derive(Args, Debug)]
+pub struct Flags {
+    /// Set the path to the working tree
+    #[arg(long, required = false, global = true, default_value = ".")]
+    work_tree: PathBuf,
+
+    /// Set the path to the repository
+    #[arg(long, required = false, global = true, default_value = ".rustig.db")]
+    repo_file: PathBuf,
 }
 
 #[derive(Subcommand, Debug)]
@@ -49,57 +63,54 @@ enum Commands {
     },
 }
 
-pub fn parse() -> anyhow::Result<()> {
+pub async fn parse() -> anyhow::Result<()> {
     let args = Cli::parse();
 
     env_logger::Builder::new()
         .filter_level(args.verbose.log_level_filter())
         .init();
 
-    log::trace!("Building execution context");
-    let work_dir = env::current_dir().context("could not resolve current working directory")?;
-    let context = data::Context {
-        work_dir: PathBuf::from(&work_dir), // TODO: supplyable via global flag `--work-tree`
-        repo_dir: work_dir.join(".rustig"), // TODO: supplyable via global flag `--git-dir`
-    };
-
-    return match args.command {
-        Commands::Init => init(&context),
-        Commands::HashObject { path } => hash_object(&context, path),
-        Commands::CatFile { object } => cat_file(&context, object),
-        Commands::WriteTree => write_tree(&context),
-        Commands::ReadTree { object } => read_tree(&context, object),
-    };
+    match args.command {
+        Commands::Init => init(args.flags).await,
+        Commands::HashObject { path } => hash_object(args.flags, path).await,
+        Commands::CatFile { object } => cat_file(args.flags, object).await,
+        Commands::WriteTree => write_tree(args.flags).await,
+        Commands::ReadTree { object } => read_tree(args.flags, object).await,
+    }
 }
 
-fn init(context: &data::Context) -> anyhow::Result<()> {
-    println!("Initialized empty Rustig repository in {}", context.init()?);
+async fn init(flags: Flags) -> anyhow::Result<()> {
+    data::Context::new(flags.repo_file.clone(), true).await?;
+    println!(
+        "Initialized empty Rustig repository in {}",
+        flags.repo_file.display()
+    );
     Ok(())
 }
 
-fn hash_object(context: &data::Context, path: PathBuf) -> anyhow::Result<()> {
-    context.ensure_init()?;
+async fn hash_object(flags: Flags, path: PathBuf) -> anyhow::Result<()> {
+    let mut ctx = data::Context::new(flags.repo_file, false).await?;
     let data = fs::read(&path).context(format!("could not read '{}'", path.display()))?;
-    println!("{}", context.hash_object(data, ObjectType::Blob)?);
+    println!("{}", ctx.hash_object(data, ObjectType::Blob).await?);
     Ok(())
 }
 
-fn cat_file(context: &data::Context, object: String) -> anyhow::Result<()> {
-    context.ensure_init()?;
-    let data = context.get_object(OID(object), &[ObjectType::Blob])?;
+async fn cat_file(flags: Flags, object: String) -> anyhow::Result<()> {
+    let mut ctx = data::Context::new(flags.repo_file, false).await?;
+    let data = ctx.get_object(&OID(object), &[ObjectType::Blob]).await?;
     println!("{}", String::from_utf8_lossy(&data));
     Ok(())
 }
 
-fn write_tree(context: &data::Context) -> anyhow::Result<()> {
-    context.ensure_init()?;
-    println!("{}", context.write_tree(&context.work_dir)?);
+async fn write_tree(flags: Flags) -> anyhow::Result<()> {
+    let mut ctx = data::Context::new(flags.repo_file, false).await?;
+    println!("{}", ctx.write_tree(&flags.work_tree).await?);
     Ok(())
 }
 
-fn read_tree(context: &data::Context, object: String) -> anyhow::Result<()> {
-    context.ensure_init()?;
-    context.read_tree(OID(object), &context.work_dir)
+async fn read_tree(flags: Flags, object: String) -> anyhow::Result<()> {
+    let mut ctx = data::Context::new(flags.repo_file, false).await?;
+    ctx.read_tree(OID(object), &flags.work_tree).await
 }
 
 #[test]
